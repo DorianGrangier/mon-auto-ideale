@@ -5,6 +5,11 @@ import json, os, sys, io, re, unicodedata, urllib.request
 from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = json.load(open(sys.argv[1], encoding='utf-8'))
+# Images insérées directement dans les cellules de la feuille : adresses relevées par Claude via le connecteur Google Sheets
+cells_p = os.path.join(ROOT, 'data', 'photos_cells.json')
+if os.path.exists(cells_p):
+    for k, v in json.load(open(cells_p, encoding='utf-8')).items():
+        src.setdefault(k, v)
 state_p = os.path.join(ROOT, 'data', 'photos.json')
 state = json.load(open(state_p, encoding='utf-8')) if os.path.exists(state_p) else {}
 outdir = os.path.join(ROOT, 'assets', 'photos'); os.makedirs(outdir, exist_ok=True)

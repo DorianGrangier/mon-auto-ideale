@@ -24,7 +24,7 @@ for r in raw[1:]:
         k=b+'|'+str(r[2]).strip()
         if k not in PHOTOS_SRC:
             cr=str(r[ICR]).strip() if ICR is not None and len(r)>ICR and r[ICR] else ''
-            PHOTOS_SRC[k]={'url':str(r[IPH]).strip(),'credit':cr or '© '+b}
+            PHOTOS_SRC[k]={'url':str(r[IPH]).strip(),'credit':(cr if cr.startswith('©') else '© '+cr) if cr else '© '+b}
 raw=[tuple(list(r)+[None]*(35-len(r)))[:35] for r in raw]
 assert raw[0][1]=='Constructeur' and raw[0][34]=='Prix min.', 'Colonnes inattendues : '+str(raw[0])
 rows=[r for r in raw[1:] if r[1]]
