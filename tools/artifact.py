@@ -1,0 +1,19 @@
+"""Copie autonome du comparateur pour l'aperçu Claude (artifact) : CSS en ligne, polices Google Fonts,
+liens vers les fiches et pages ouverts sur le site en ligne. Usage : python3 tools/artifact.py dist/index.html sortie.html"""
+import re, sys
+BASE = 'https://doriangrangier.github.io/mon-auto-ideale/'
+src, out = sys.argv[1], sys.argv[2]
+h = open(src, encoding='utf-8').read()
+css = open(src.rsplit('/', 1)[0] + '/assets/site.css', encoding='utf-8').read()
+css = re.sub(r"@font-face\{[^}]*\}\n?", '', css)
+fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">'
+h = re.sub(r'<link rel="preload"[^>]*>\n?', '', h)
+h = h.replace('<link rel="stylesheet" href="assets/site.css">', fonts + '\n<style>\n' + css + '\n</style>')
+for p in ('marques.html', 'methode.html', 'mentions-legales.html'):
+    h = h.replace(f'href="{p}"', f'href="{BASE}{p}" target="_blank" rel="noopener"')
+h = h.replace('href="index.html"', 'href="#"')
+h = h.replace("const ficheUrl = c=> 'modeles/'", f"const ficheUrl = c=> '{BASE}modeles/'")
+h = h.replace('<a class="fiche-link" href="${ficheUrl(c)}">', '<a class="fiche-link" href="${ficheUrl(c)}" target="_blank" rel="noopener">')
+assert 'assets/site.css' not in h
+open(out, 'w', encoding='utf-8').write(h)
+print('ok', len(h) // 1024, 'Ko')
