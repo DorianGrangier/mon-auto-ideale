@@ -1,0 +1,788 @@
+
+
+<header class="hero">
+  __NAV__
+  <div class="hero-in">
+    <div>
+      <div class="kicker">Comparateur de voitures neuves</div>
+      <h1>Mon Auto <span>Idéale</span></h1>
+      <p>Réglez vos critères, choisissez leur importance : chaque version vendue en France reçoit une note de correspondance sur 100.</p>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="parade" id="parade" aria-hidden="true"></div>
+  </div>
+  <div class="road"></div>
+</header>
+<div class="wrap">
+
+  <div class="grid">
+    <form class="panel" id="form" aria-label="Critères de recherche" onsubmit="return false">
+      <div class="panel-head">
+        <div><h2>Vos critères</h2><div class="count" id="crit-count"></div></div>
+        <div class="ph-actions">
+          <button type="button" class="btn-link" id="btn-example">Exemple</button>
+          <button type="button" class="btn-link" id="btn-reset">Tout effacer</button>
+          <button type="button" class="close-crit" data-close-crit>Voir les résultats</button>
+        </div>
+      </div>
+      <p class="example" id="example-note">Exemple pré-rempli : citadine électrique de 150 à 200&nbsp;ch, au moins 400&nbsp;km d'autonomie et recharge rapide, à moins de 32&nbsp;000&nbsp;€. Modifiez librement les critères.</p>
+      <div id="crits"></div>
+      <div class="close-bottom"><button type="button" class="close-crit big" data-close-crit>Voir les résultats</button></div>
+    </form>
+
+    <main id="resultats" aria-live="polite">
+      <div id="best"></div>
+      <div id="podium-wrap" hidden>
+        <div class="res-head"><h2>Sur le podium</h2></div>
+        <div class="podium" id="podium"></div>
+      </div>
+      <div class="res-head">
+        <h2 id="list-title">Classement</h2>
+        <div class="controls">
+          <label><input type="checkbox" id="opt-model" checked> Une version par modèle</label>
+          <label><input type="checkbox" id="opt-strict" checked> Masquer les voitures qui ratent un critère impératif</label>
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+      <button class="more" id="more" type="button" hidden>Afficher 20 de plus</button>
+      <div class="restart-end" id="restart-end" hidden><button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Nouvelle recherche</button></div>
+      <footer>
+        <details>
+          <summary>Sources et méthode de calcul</summary>
+        <p><a href="methode.html">Lire la méthode complète</a> · <a href="marques.html">Toutes les marques et tous les modèles</a></p>
+        <p>Source : fichier Auto.xlsx (30 marques parmi les plus vendues en France). Prix « à partir de » : tarif de la finition d'entrée de gamme pour chaque motorisation, consommation et autonomie électrique : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Coût de l'énergie : estimation à partir de la consommation WLTP, hors pertes de recharge et conduite réelle.</p>
+        <p>« Notre avis » : synthèse d'essais et d'informations publiés dans la presse spécialisée et par les constructeurs (agrément, finition, fiabilité, garantie, restylages et remplaçants annoncés), à jour en octobre 2026. Ces avis n'entrent pas dans le calcul de la note.</p>
+        <p>« Éligible aux aides à l'achat » : voiture électrique neuve ayant atteint le score environnemental, à moins de 47&nbsp;000&nbsp;€ et 2,4&nbsp;t (prime CEE, ex-bonus écologique). Liste établie à partir des listes publiées en 2026 : vérifiez la version exacte sur le site de l'ADEME avant achat.</p>
+        <p>Calcul de la note : chaque critère activé reçoit une note sur 100. Pour les critères chiffrés (prix, coffre, coût de l'énergie…), atteindre tout juste votre cible donne 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus, être en deçà en fait perdre. Les notes sont pondérées par l'importance choisie (secondaire ×1, important ×2, impératif ×3) puis ramenées sur 100 ; le prix d'achat compte 1,5 fois plus que les autres critères (×1,5, ×3 ou ×4,5). À note égale, la voiture la moins chère passe devant, puis celle au coût d'énergie le plus bas, à la plus grande autonomie électrique, la plus puissante, et enfin une marque française devant une marque étrangère. Une donnée non communiquée vaut 0,5.</p>
+        </details>
+      </footer>
+    </main>
+  </div>
+</div>
+<div class="tray" id="tray" hidden></div>
+<div class="overlay" id="cmp-view" hidden role="dialog" aria-modal="true" aria-labelledby="cmp-title"><div class="sheet" id="cmp-sheet"></div></div>
+<button type="button" class="fab" id="fab" data-open-crit>Modifier mes critères <b id="fab-count"></b></button>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script type="application/json" id="avis-data">__AVIS__</script>
+<script type="application/json" id="meta-data">__META__</script>
+<script>
+(function(){
+const CARS = JSON.parse(document.getElementById('data').textContent);
+const META = JSON.parse(document.getElementById('meta-data').textContent);
+const slug = s=> s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const ficheUrl = c=> 'modeles/'+slug(c.b+' '+c.m)+'.html';
+/* Avis éditoriaux par modèle (au-delà de la fiche technique, n'influencent pas la note) */
+const AVIS = JSON.parse(document.getElementById('avis-data').textContent);
+const avisOf = c=> (c.e==='ev' && AVIS[c.b+'|'+c.m+'|ev']) || AVIS[c.b+'|'+c.m];  // avis distinct pour une version électrique vendue sous le même nom (ex. GLC)
+const esc = s=> String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function avisBlock(c, cls=''){ const a=avisOf(c); if(!a) return '';
+  return `<section class="avis ${cls}" aria-label="Notre avis sur ${esc(c.b+' '+c.m)}">
+    <div class="avis-h"><span class="avis-k">Notre avis</span><span class="avis-sub">au-delà de la fiche technique</span></div>
+    <p class="avis-v">${esc(a.v)}</p>
+    <div class="avis-cols">
+      <div><h5 class="pl">Points forts</h5><ul class="pl">${a.p.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div><h5 class="mn">Points faibles</h5><ul class="mn">${a.m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+    </div>
+    <p class="avis-q"><b>Pour qui ?</b> ${esc(a.q)}</p>
+    ${a.s?`<p class="avis-s"><b>Bon à savoir</b> ${esc(a.s)}</p>`:''}
+  </section>`; }
+const avisShort = c=>{ const a=avisOf(c); return a?`<p class="avis-mini"><b>Notre avis</b> ${esc(a.v)}</p>`:''; };
+const fmt = (n,d=0)=> n==null ? '—' : n.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur = n => n==null ? 'Prix n.c.' : fmt(n)+'\u00a0€';
+
+/* ---------- Référentiels ---------- */
+const ENERGY = {ess:'Essence',essm:'Essence micro-hybride',die:'Diesel',diem:'Diesel micro-hybride',hev:'Hybride',phev:'Hybride rechargeable',ev:'Électrique',gpl:'Essence + GPL',h2:'Hydrogène'};
+const MOTO_OPTS = [['ess','Essence'],['die','Diesel'],['mhev','Hybride léger'],['hev','Hybride'],['phev','Hybride rechargeable'],['ev','Électrique'],['gpl','GPL'],['h2','Hydrogène']];
+// proximité entre le souhait (ligne) et la motorisation réelle (colonne)
+const MOTO_SIM = {
+  ess:{ess:1,essm:.9,gpl:.6,hev:.5,phev:.3,die:.2,diem:.2},
+  die:{die:1,diem:.9,ess:.2,essm:.2},
+  mhev:{essm:1,diem:1,hev:.6,ess:.5,die:.4,phev:.3},
+  hev:{hev:1,phev:.6,essm:.5,diem:.4,ev:.2},
+  phev:{phev:1,hev:.5,ev:.4},
+  ev:{ev:1,h2:.5,phev:.4},
+  gpl:{gpl:1,ess:.3,essm:.2},
+  h2:{h2:1,ev:.5}
+};
+const BODY_OPTS = ['Citadine','Compacte','Berline','Break','SUV urbain','SUV','Monospace','Coupé','Cabriolet','Sportive','Tout-terrain'];
+/* Silhouettes de profil (avant à droite), viewBox 120×48, sol à y=46.
+   b = carrosserie, win = vitres (découpées), w = roues [x], r/cy = rayon/centre des roues,
+   doors = montants de portes, hl = phare avant [x,y], tl = feu arrière [x,y], x = détails supplémentaires */
+const SIL = {
+  'Citadine': {b:'M26 38 L26 22 Q26 17 28 14 L33 7.5 Q35 5.5 39 5.5 L62 5.5 Q66 5.5 69 8.5 L77 18 L88 21 Q93 22 93 28 L93 38 Z',
+    win:['36,8.5 48,8.5 48,18 29.5,18','51,8.5 62,8.5 66,9.5 73,18 51,18'], w:[38,81], doors:[[49.5,19,34]], hl:[87,23], tl:[26,20]},
+  'Compacte': {b:'M12 38 L12 25 Q12 20 16 19 L26 10 Q28 8 32 8 L68 8 Q72 8 75 11 L84 19 L99 22 Q105 23 105 29 L105 38 Z',
+    win:['30,11 36,11 36,19 22,19','39,11 55,11 55,19 39,19','58,11 68,11 72,12 79,19 58,19'], w:[28,89], doors:[[37.5,20,34],[56.5,20,34]], hl:[99,24], tl:[12,22]},
+  'Berline': {b:'M5 38 L5 27 Q5 23 9 22 L28 20 L40 10 Q42 8 46 8 L70 8 Q74 8 77 11 L86 20 L107 22 Q115 23 115 30 L115 38 Z',
+    win:['42,11 46,11 46,19 34,19','49,11 62,11 62,19 49,19','65,11 71,11 74,12 81,19 65,19'], w:[24,95], doors:[[47.5,20,34],[63.5,20,34]], hl:[108,24], tl:[5,24],
+    x:'<path d="M9 21.5 L27 20" stroke="var(--tile-bg)" stroke-width="1"/>'},
+  'Break': {b:'M5 38 L5 23 Q5 18 7 15 L12 9 Q14 7 18 7 L70 7 Q74 7 77 10 L86 20 L107 22 Q115 23 115 30 L115 38 Z',
+    win:['15,10 33,10 33,19 9,19','36,10 52,10 52,19 36,19','55,10 70,10 73,11 81,19 55,19'], w:[24,95], doors:[[34.5,20,34],[53.5,20,34]], hl:[108,24], tl:[5,21],
+    x:'<path d="M17 5.2 L68 5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M20 5.2 V7 M65 5.2 V7" stroke="currentColor" stroke-width="1.6"/>'},
+  'SUV': {b:'M9 35 L9 18 Q9 12 12 9 L16 5 Q18 3.5 22 3.5 L72 3.5 Q76 3.5 79 6.5 L88 16 L105 18 Q111 19 111 25 L111 35 Z',
+    win:['16,7 32,7 32,16 12,16','35,7 54,7 54,16 35,16','57,7 72,7 75,8 83,16 57,16'], w:[28,91], r:9.5, cy:36.5, doors:[[33.5,17,31],[55.5,17,31]], hl:[104,20], tl:[9,19],
+    x:'<path d="M9 30.5 H111" stroke="var(--tile-bg)" stroke-width="1"/><path d="M20 1.8 L70 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M23 1.8 V3.5 M67 1.8 V3.5" stroke="currentColor" stroke-width="1.6"/>'},
+  'SUV urbain': {b:'M15 35 L15 21 Q15 16 18 13 L24 7.5 Q27 5.5 32 5.5 L63 5.5 Q67 5.5 70 8.5 L79 17 L97 19.5 Q103 20.5 103 26 L103 35 Z',
+    win:['28,8.5 38,8.5 38,16 20.5,16','41,8.5 55,8.5 55,16 41,16','58,8.5 63,8.5 66,9.5 74,16 58,16'], w:[32,87], r:9, cy:37, doors:[[39.5,17,31],[56.5,17,31]], hl:[97,21], tl:[15,19],
+    x:'<path d="M15 30.5 H103" stroke="var(--tile-bg)" stroke-width="1"/><path d="M28 3.8 L60 3.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M31 3.8 V5.5 M57 3.8 V5.5" stroke="currentColor" stroke-width="1.6"/>'},
+  'Monospace': {b:'M8 38 L8 12 Q8 5.5 13 5 L58 3.5 Q62 3.5 65 5.5 L88 20 L106 23 Q112 24 112 30 L112 38 Z',
+    win:['12,8 29,8 29,19 10.5,19','32,8 51,8 51,19 32,19','54,8 60,7.5 63,8.5 77,19 54,19'], w:[26,95], doors:[[52.5,20,34]], hl:[105,25], tl:[8,15],
+    x:'<path d="M31 21 H52" stroke="var(--tile-bg)" stroke-width="1"/>'},
+  'Coupé': {b:'M5 38 L5 28 Q5 24 9 23 L22 21 L42 12.5 Q47 10.5 53 10.5 L67 10.5 Q71 10.5 75 13 L86 21 L107 23 Q115 24 115 31 L115 38 Z',
+    win:['44,14 50,13.5 50,20 30,20','53,13.5 67,13.5 71,14.5 79,20 53,20'], w:[24,95], doors:[[51.5,21,34]], hl:[108,25], tl:[5,25]},
+  'Cabriolet': {b:'M5 38 Q3 28 8 24.5 Q12 22 22 21.5 L84 20.5 Q97 20 106 23 Q115 26 116 33 L116 38 Z',
+    win:[], w:[24,95], r:8.5, cy:37.5, spokes:true, doors:[], hl:null, tl:null,
+    x:'<path d="M79.5 21.2 L69 9.6 Q68.6 8.6 69.8 8.5 L72.6 8.4 L84.6 20.9 Z" fill="currentColor"/>'
+     +'<path d="M49.5 21 L50.6 12.6 Q51 10.8 53 10.8 L56 10.8 Q58 10.8 57.8 12.8 L57 21 Z" fill="currentColor"/>'
+     +'<path d="M28 21.6 Q32 16.4 40 16.4 L44 16.4 Q47 16.4 47 21.4 Z" fill="currentColor"/>'
+     +'<path d="M10 27.5 Q55 24 110 25.6" fill="none" stroke="var(--tile-bg)" stroke-width="1"/>'
+     +'<path d="M47.5 23 V34.5 H76 Q78.8 29 76.5 23" fill="none" stroke="var(--tile-bg)" stroke-width="1"/>'
+     +'<rect x="51.5" y="25.5" width="6" height="1.6" rx=".8" fill="var(--tile-bg)"/>'
+     +'<path d="M106 25.2 Q110 24 113.5 25.6 Q111 28.2 107 27.6 Z" fill="var(--tile-bg)"/>'
+     +'<path d="M5.2 27.5 Q6.8 25.6 10.3 26 Q8.8 28.6 5.8 29 Z" fill="var(--tile-bg)"/>'},
+  'Sportive': {b:'M5 38 L5 30 Q5 26 8 25 L14 24 Q28 21.5 35 19 Q47 13 57 12.4 Q65 12.2 71 14.6 L84 21 Q99 22.8 108 25.6 Q115 28 115 32 L115 38 Z',
+    win:[], w:[24,96], r:9, cy:37, spokes:6, doors:[], hl:null, tl:null,
+    x:'<path d="M50 16 Q58 14.6 65 15.4 Q68 16 70 17.2 L77 21.2 L50 21.6 Z" fill="var(--tile-bg)"/>'
+     +'<path d="M38.5 21.4 L47 17 L47 21.5 Z" fill="var(--tile-bg)"/>'
+     +'<path d="M48.5 23 V34 H76 Q80.5 28.5 78.5 23" fill="none" stroke="var(--tile-bg)" stroke-width="1"/>'
+     +'<path d="M33 25.4 Q40 23.6 45.5 24 Q46.8 24.3 46 25.8 L41.6 32.4 Q36 33.4 31.5 32.6 Z" fill="var(--tile-bg)"/>'
+     +'<path d="M103.5 25 Q109 25.2 112.5 27.4 Q108.5 28.6 104.5 27.2 Z" fill="var(--tile-bg)"/>'
+     +'<rect x="107.5" y="31.5" width="5.5" height="2.6" rx="1" fill="var(--tile-bg)"/>'
+     +'<path d="M5.6 27.2 L10.5 26.4 L9.5 28.6 L5.6 29.2 Z" fill="var(--tile-bg)"/>'
+     +'<path d="M34 35.6 H86" stroke="var(--tile-bg)" stroke-width="1"/>'
+     +'<path d="M2.5 17.6 Q2.4 16.4 4 16.4 L18.2 16.2 Q19.6 16.3 19 17.8 L18.4 19 Q18 19.6 17 19.6 L4 19.8 Q2.6 19.8 2.5 18.8 Z" fill="currentColor"/>'
+     +'<path d="M11.5 19.6 L14.2 19.6 L15.6 24.2 L12.6 24.4 Z" fill="currentColor"/>'},
+  'Tout-terrain': {b:'M13 35 L13 7 Q13 3.5 16 3.5 L72 3.5 Q74 3.5 75 5.5 L80 16 L104 17.5 Q109 18 109 22 L109 35 Z',
+    win:['17,7 34,7 34,15 17,15','37,7 55,7 55,15 37,15','58,7 71.5,7 76,15 58,15'], w:[31,91], r:10, cy:36, doors:[[35.5,16,31],[56.5,16,31]], hl:[103,20], tl:[13,18],
+    x:'<circle cx="8" cy="22" r="7" fill="currentColor"/><circle cx="8" cy="22" r="3" fill="var(--tile-bg)"/><path d="M105 30 H112 V34 H105 Z" fill="currentColor"/>'},
+};
+function silhouette(type){ const s=SIL[type]; if(!s) return '';
+  const r=s.r||8, cy=s.cy||38, bg='var(--tile-bg)';
+  const wins=s.win.map(p=>`<polygon points="${p}" fill="${bg}"/>`).join('');
+  const doors=(s.doors||[]).map(([x,y1,y2])=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${bg}" stroke-width="1"/>`).join('');
+  const lights=(s.hl?`<rect x="${s.hl[0]}" y="${s.hl[1]}" width="6" height="2.6" rx="1.2" fill="${bg}"/>`:'')+(s.tl?`<rect x="${s.tl[0]}" y="${s.tl[1]}" width="2" height="3.5" rx="1" fill="${bg}"/>`:'');
+  const spokes6=(x)=>{ let o=''; for(let k=0;k<6;k++){ const a=k*Math.PI/3-Math.PI/2;
+      o+=`<line x1="${x}" y1="${cy}" x2="${(x+r*.72*Math.cos(a)).toFixed(2)}" y2="${(cy+r*.72*Math.sin(a)).toFixed(2)}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`; } return o; };
+  const spokes=(x)=>{ if(s.spokes===6) return spokes6(x); let o=''; for(let k=0;k<10;k++){ const a=k*Math.PI/5, a2=a+.55, ri=r*.18, ro=r*.7;
+      o+=`<path d="M${(x+ri*Math.cos(a)).toFixed(2)} ${(cy+ri*Math.sin(a)).toFixed(2)} Q${(x+r*.55*Math.cos(a+.15)).toFixed(2)} ${(cy+r*.55*Math.sin(a+.15)).toFixed(2)} ${(x+ro*Math.cos(a2)).toFixed(2)} ${(cy+ro*Math.sin(a2)).toFixed(2)}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`; } return o; };
+  const wheels=s.w.map(x=> s.spokes
+    ? `<circle cx="${x}" cy="${cy}" r="${r+1.6}" fill="${bg}"/><circle cx="${x}" cy="${cy}" r="${r}" fill="currentColor"/><circle cx="${x}" cy="${cy}" r="${(r*.74).toFixed(2)}" fill="${bg}"/>${spokes(x)}<circle cx="${x}" cy="${cy}" r="${(r*.2).toFixed(2)}" fill="currentColor"/>`
+    : `<circle cx="${x}" cy="${cy}" r="${r+1.6}" fill="${bg}"/><circle cx="${x}" cy="${cy}" r="${r}" fill="currentColor"/><circle cx="${x}" cy="${cy}" r="${(r*.5).toFixed(1)}" fill="${bg}"/><circle cx="${x}" cy="${cy}" r="${(r*.18).toFixed(1)}" fill="currentColor"/>`).join('');
+  return `<svg viewBox="0 0 120 48" aria-hidden="true"><path d="${s.b}" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>${wins}${doors}${lights}${s.x||''}${wheels}<line x1="1" y1="47" x2="119" y2="47" stroke="currentColor" stroke-width="1" opacity=".3"/></svg>`; }
+const BODY_ALIAS = {Roadster:'Cabriolet',Limousine:'Berline'};
+const BODY_SIM = {
+  Citadine:{Compacte:.5,'SUV urbain':.4},
+  Compacte:{Citadine:.5,Berline:.5,Break:.3,'SUV urbain':.4},
+  Berline:{Compacte:.5,Break:.6,Coupé:.3},
+  Break:{Berline:.6,Monospace:.4,SUV:.3},
+  SUV:{'SUV urbain':.7,'Tout-terrain':.8,Monospace:.3,Break:.3},
+  'SUV urbain':{SUV:.7,Compacte:.4,Citadine:.4,'Tout-terrain':.4},
+  Monospace:{SUV:.4,Break:.4},
+  Coupé:{Sportive:.6,Cabriolet:.4,Berline:.3},
+  Cabriolet:{Coupé:.4,Sportive:.4},
+  Sportive:{Coupé:.6,Cabriolet:.4},
+  'Tout-terrain':{SUV:.7}
+};
+/* Coût de l'énergie : hypothèses modifiables par l'utilisateur */
+const E = {km:15000, sp:2.10, go:2.35, e85:0.88, gpl:1.00, el:0.20, kit:false};
+const OVER = {gpl:1.2, e85:1.25};  // surconsommation en volume par rapport à l'essence
+// carburant réellement utilisé pour le calcul
+function fuelOf(c){
+  if(c.e==='ev') return 'el';
+  if(c.e==='die'||c.e==='diem') return 'go';
+  if(c.e==='gpl') return 'gpl';
+  if(c.ffv || (E.kit && (c.e==='ess'||c.e==='essm'))) return 'e85';
+  return 'sp'; }
+const FUEL_LABEL = {sp:'SP95',go:'gazole',e85:'E85',gpl:'GPL',el:'électricité'};
+function energyCost(c){ const k=E.km/100, f=fuelOf(c);
+  if(f==='el') return c.kwh==null?null:c.kwh*k*E.el;
+  if(c.l==null) return null;
+  let v=c.l*(OVER[f]||1)*k*E[f];
+  if(c.e==='phev' && c.kwh!=null) v+=c.kwh*k*E.el;
+  return v; }
+const fuelNote = c=> c.e==='phev' ? FUEL_LABEL[fuelOf(c)]+' + électricité' : FUEL_LABEL[fuelOf(c)];
+const fmtCost = v=> v==null?'n.c.':'≈\u00a0'+fmt(Math.round(v/10)*10)+'\u00a0€/an';
+/* ---------- Aides à l'achat (prime CEE, ex-bonus écologique) ----------
+   Électriques neuves ayant atteint le score environnemental, prix ≤ 47 000 €, masse < 2 400 kg.
+   Modèles retenus d'après les listes publiées en 2026 (à vérifier sur le site de l'ADEME). */
+const SCORE_ENV = new Set(META.SCORE_ENV);
+const eligibleAid = c=> c.e==='ev' && SCORE_ENV.has(c.b+'|'+c.m) && c.p!=null && c.p<=47000 && c.w!=null && c.w<2400;
+const AID_TXT = "Éligible aux aides à l'achat";
+const TR = {FWD:'Traction',RWD:'Propulsion',AWD:'4 roues motrices'};
+const BRANDS = [...new Set(CARS.map(c=>c.b))].sort((a,b)=>a.localeCompare(b,'fr'));
+/* Nationalité des marques (d'après le fichier) et drapeaux dessinés en SVG */
+const NATION = META.NATION;
+const ADJ = META.ADJ;
+const vbands=(a,b,c)=>`<rect width="10" height="20" fill="${a}"/><rect x="10" width="10" height="20" fill="${b}"/><rect x="20" width="10" height="20" fill="${c}"/>`;
+const hbands=(a,b,c)=>`<rect width="30" height="6.67" fill="${a}"/><rect y="6.67" width="30" height="6.67" fill="${b}"/><rect y="13.33" width="30" height="6.67" fill="${c}"/>`;
+const star=(cx,cy,r,rot=0)=>{ const p=[]; for(let i=0;i<10;i++){ const a=(rot-90+i*36)*Math.PI/180, rr=i%2?r*.382:r; p.push((cx+rr*Math.cos(a)).toFixed(2)+','+(cy+rr*Math.sin(a)).toFixed(2)); } return `<polygon points="${p.join(' ')}" fill="#FFDE00"/>`; };
+const FLAG_SVG = {
+  'Chine': '<rect width="30" height="20" fill="#EE1C25"/>'+star(5,5,3)+star(10,2,1,23)+star(12,4,1,46)+star(12,7,1,70)+star(10,9,1,21),
+  'France': vbands('#0055A4','#FFFFFF','#EF4135'),
+  'Italie': vbands('#009246','#FFFFFF','#CE2B37'),
+  'Roumanie': vbands('#002B7F','#FCD116','#CE1126'),
+  'Allemagne': hbands('#000000','#DD0000','#FFCE00'),
+  'Espagne': '<rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/>',
+  'Suède': '<rect width="30" height="20" fill="#006AA7"/><rect x="9" width="4" height="20" fill="#FECC02"/><rect y="8" width="30" height="4" fill="#FECC02"/>',
+  'Japon': '<rect width="30" height="20" fill="#FFFFFF"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>',
+  'République tchèque': '<rect width="30" height="10" fill="#FFFFFF"/><rect y="10" width="30" height="10" fill="#D7141A"/><path d="M0 0 L15 10 L0 20 Z" fill="#11457E"/>',
+  'États-Unis': '<rect width="30" height="20" fill="#FFFFFF"/>'+[0,1,2,3,4,5,6].map(i=>`<rect y="${(i*20/6.5).toFixed(2)}" width="30" height="1.54" fill="#B22234"/>`).join('')+'<rect width="13" height="10.8" fill="#3C3B6E"/>'
+     +[[2.5,2.5],[6.5,2.5],[10.5,2.5],[4.5,5.4],[8.5,5.4],[2.5,8.3],[6.5,8.3],[10.5,8.3]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".7" fill="#FFFFFF"/>`).join(''),
+  'Royaume-Uni': '<rect width="30" height="20" fill="#012169"/><path d="M0 0 L30 20 M30 0 L0 20" stroke="#FFFFFF" stroke-width="4"/><path d="M0 0 L30 20 M30 0 L0 20" stroke="#C8102E" stroke-width="1.4"/><path d="M15 0 V20 M0 10 H30" stroke="#FFFFFF" stroke-width="6"/><path d="M15 0 V20 M0 10 H30" stroke="#C8102E" stroke-width="3.4"/>',
+  'Corée du Sud': '<rect width="30" height="20" fill="#FFFFFF"/><path d="M10.5 10 A4.5 4.5 0 0 1 19.5 10 Z" fill="#CD2E3A"/><path d="M10.5 10 A4.5 4.5 0 0 0 19.5 10 Z" fill="#0047A0"/><circle cx="12.75" cy="10" r="2.25" fill="#CD2E3A"/><circle cx="17.25" cy="10" r="2.25" fill="#0047A0"/>'
+     +[[5,4,33],[25,4,-33],[5,16,-33],[25,16,33]].map(([x,y,a])=>`<g transform="translate(${x} ${y}) rotate(${a})"><rect x="-2.6" y="-2" width="5.2" height=".9" fill="#000"/><rect x="-2.6" y="-.45" width="5.2" height=".9" fill="#000"/><rect x="-2.6" y="1.1" width="5.2" height=".9" fill="#000"/></g>`).join(''),
+};
+function flag(nation, cls='flag'){ const inner=FLAG_SVG[nation]; if(!inner) return '';
+  return `<svg class="${cls}" viewBox="0 0 30 20" role="img" aria-label="${nation}"><title>${nation}</title>${inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`; }
+const brandFlag = b=> flag(NATION[b]);
+
+CARS.forEach((c,i)=>{ c.id=i; c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
+
+/* ---------- Fonctions de notation ---------- */
+// cible tout juste atteinte = BASE ; faire mieux rapporte jusqu'à 1 ; en deçà, la note décroît jusqu'à 0 à la limite de tolérance
+const BASE = .8;
+const atLeast = (v,t,tol,bonus)=> v>=t ? BASE+(1-BASE)*Math.min(1,(v-t)/(bonus*t)) : BASE*Math.max(0,1-(t-v)/(tol*t));
+const atMost  = (v,t,tol,bonus)=> v<=t ? BASE+(1-BASE)*Math.min(1,(t-v)/(bonus*t)) : BASE*Math.max(0,1-(v-t)/(tol*t));
+const UNKNOWN = .5;
+
+const CRITS = [
+ {id:'moto', name:'Motorisation', short:'Motorisation',
+  score(c,s){ let best=0; s.val.forEach(u=>{ best=Math.max(best,(MOTO_SIM[u]||{})[c.e]||0) }); return [best, ENERGY[c.e]]; }},
+ {id:'power', name:'Puissance', short:'Puissance',
+  score(c,s){ const h=c.hp; if(h==null) return [UNKNOWN,'n.c.'];
+    const lo=s.min, hi=s.max; let v=1;
+    if(h<lo) v=BASE*Math.max(0,1-(lo-h)/(.4*lo));
+    else if(hi && h>hi) v=BASE*Math.max(0,1-(h-hi)/(.5*hi));
+    return [v, h+' ch']; }},
+ {id:'body', name:'Carrosserie', short:'Carrosserie',
+  score(c,s){ let best=0; s.val.forEach(u=>c.tags.forEach(t=>{ best=Math.max(best, u===t?1:((BODY_SIM[u]||{})[t]||0)) })); return [best, c.c]; }},
+ {id:'seats', name:'Nombre de places', short:'Places',
+  score(c,s){ const p=c.pl, big=p>5; return [s.val==='gt5' ? (big?1:0) : (big?.6:1), p+' places']; }},
+ {id:'cost', name:"Coût de l'énergie par an", short:'Coût énergie',
+  score(c,s){ const v=energyCost(c); return v==null?[UNKNOWN,'n.c.']:[atMost(v,s.val,.5,.4), fmtCost(v)]; }},
+ {id:'aut', name:'Autonomie électrique', short:'Autonomie élec.',
+  score(c,s){ if(!c.plug) return [0,'sans batterie rechargeable']; return c.aut==null?[UNKNOWN,'n.c.']:[atLeast(c.aut,s.val,.5,.5), c.aut+' km']; }},
+ {id:'chg', name:'Puissance de recharge', short:'Recharge',
+  score(c,s){ if(!c.plug) return [0,'sans recharge']; return c.kw==null?[UNKNOWN,'n.c.']:[atLeast(c.kw,s.val,.6,1), fmt(c.kw,c.kw%1?1:0)+' kW ('+(c.rt||'')+')']; }},
+ {id:'box', name:'Boîte de vitesses', short:'Boîte',
+  score(c,s){ return [c.bx===s.val?1:0, c.bx==='A'?'Automatique':'Manuelle ('+c.bxl.replace('BVM','')+' rapports)']; }},
+ {id:'trans', name:'Transmission', short:'Transmission',
+  score(c,s){ const awd=c.tr==='AWD'; return [s.val==='awd' ? (awd?1:0) : (awd?.6:1), TR[c.tr]||'n.c.']; }},
+ {id:'trunk', name:'Volume de coffre', short:'Coffre',
+  score(c,s){ return c.tk==null?[UNKNOWN,'n.c.']:[atLeast(c.tk,s.val,.35,.4), c.tk+' L']; }},
+ {id:'ncap', name:'Étoiles Euro NCAP', short:'Euro NCAP',
+  score(c,s){ if(c.nc==null) return [UNKNOWN,'non testée'];
+    const v=c.nc,t=s.val; return [v>=t?(t>=5?1:BASE+(1-BASE)*(v-t)/(5-t)):BASE*Math.max(0,1-(t-v)/2), '★'.repeat(v)+' '+v+'/5']; }},
+ {id:'price', name:'Prix', short:'Prix',
+  score(c,s){ return c.p==null?[UNKNOWN,'n.c.']:[atMost(c.p,s.val,.25,.4), 'à partir de\u00a0'+eur(c.p)]; }},
+];
+
+const ORDER=['price','body','seats','moto','power','cost','aut','chg','box','trans','trunk','ncap'];
+CRITS.sort((x,y)=>ORDER.indexOf(x.id)-ORDER.indexOf(y.id));
+
+/* ---------- État ---------- */
+const BLANK = ()=>({
+  moto:{on:false,w:2,val:new Set()}, body:{on:false,w:2,val:new Set()}, seats:{on:false,w:2,val:'le5'}, power:{on:false,w:2,min:100,max:200},
+  cost:{on:false,w:2,val:1500}, aut:{on:false,w:2,val:350}, chg:{on:false,w:1,val:100},
+  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,val:40000}
+});
+const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:true},o);
+  set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
+  set('power',{w:2,min:150,max:200}); set('aut',{w:2,val:400}); set('chg',{w:2,val:100}); set('trunk',{w:2,val:270}); set('ncap',{w:1,val:4});
+  return s; };
+let S = EXAMPLE();
+
+/* ---------- Formulaire ---------- */
+const W_LABELS = [[1,'Secondaire'],[2,'Important'],[3,'Impératif']];
+const seg = (key,field,opts,cur)=> `<div class="seg" role="group">${opts.map(([v,l])=>`<button type="button" data-k="${key}" data-f="${field}" data-v="${v}" aria-pressed="${String(v)===String(cur)}">${l}</button>`).join('')}</div>`;
+const range = (key,field,min,max,step,val,unit,dec=0)=> `<div class="range-row"><input type="range" id="r-${key}-${field}" data-k="${key}" data-f="${field}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${unit} (curseur)"><span class="numbox"><input type="number" class="num-in" id="n-${key}-${field}" data-k="${key}" data-f="${field}" data-num="1" min="0" step="any" inputmode="numeric" value="${val}" aria-label="${unit}"><span class="unit">${unit}</span></span></div>`;
+
+const CONTROL = {
+  moto: s=>`<div class="chips">${MOTO_OPTS.map(([v,l])=>`<button type="button" class="chip" data-k="moto" data-chip="${v}" aria-pressed="${s.val.has(v)}">${l}</button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une motorisation proche (ex. hybride rechargeable pour « hybride ») obtient une note partielle. Choisir « Électrique » affiche les critères d'autonomie et de puissance de recharge.</p>`,
+  body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${v}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
+  seats: s=>seg('seats','val',[['le5','5 places ou moins'],['gt5','Plus de 5 places']],s.val)+`<p class="hint">Avec « 5 places ou moins », un 7 places reste possible (note partielle). Avec « Plus de 5 places », seuls les 7 places conviennent.</p>`,
+  cost: s=>range('cost','val',300,4000,50,s.val,'€/an')+`<p class="hint">Budget maximum de carburant ou d'électricité par an, selon le kilométrage et les prix ci-dessous.</p>`,
+  aut: s=>range('aut','val',30,700,10,s.val,'km')+`<p class="hint">Autonomie WLTP mixte minimale annoncée par le constructeur. Concerne les électriques et hybrides rechargeables.</p>`,
+  chg: s=>range('chg','val',7,300,1,s.val,'kW')+`<p class="hint">Puissance maximale acceptée par la voiture (borne rapide DC si disponible).</p>`,
+  power: s=>{ const opt=(list,cur)=>list.map(([v,l])=>`<option value="${v}" ${v===cur?'selected':''}>${l}</option>`).join('');
+    const steps=[]; for(let h=50;h<=800;h+=50) steps.push(h);
+    return `<div class="pw"><label for="pw-min">De</label><select id="pw-min" data-k="power" data-f="min">${opt(steps.filter(h=>h<800).map(h=>[h,h+' ch']),s.min)}</select>
+      <label for="pw-max">à</label><select id="pw-max" data-k="power" data-f="max">${opt([...steps.filter(h=>h>50).map(h=>[h,h+' ch']),[0,'sans limite']],s.max)}</select></div>
+      <p class="hint">Paliers de 50 ch. Une voiture un peu en dehors de la fourchette obtient une note partielle.</p>`; },
+  box: s=>seg('box','val',[['A','Automatique'],['M','Manuelle']],s.val),
+  trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
+  trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
+  ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
+  price: s=>range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Budget maximum, prix catalogue. Au-delà, la note baisse rapidement (0 à +25 %). Le prix compte 1,5 fois plus que les autres critères.</p>`,
+};
+
+function settingsBlock(){ return `
+   <section class="crit settings ${OPEN_HINTS.has('energy')?'show-hint':''}" id="c-energy" ${S.cost.on?'':'hidden'}>
+     <div class="crit-h"><h3>Kilométrage et prix de l'énergie</h3>${infoBtn('energy','Kilométrage et prix de l\'énergie')}</div>
+     <div class="crit-b">
+       <div><div class="sub">Kilométrage annuel</div>${range('energy','km',3000,50000,1000,E.km,'km/an')}</div>
+       <div class="prices">
+         <label for="e-sp">SP95 (€/L)<input id="e-sp" data-e="sp" type="number" inputmode="decimal" min="0.5" max="5" step="0.01" value="${E.sp.toFixed(2)}"></label>
+         <label for="e-go">Gazole (€/L)<input id="e-go" data-e="go" type="number" inputmode="decimal" min="0.5" max="5" step="0.01" value="${E.go.toFixed(2)}"></label>
+         <label for="e-e85">E85 (€/L)<input id="e-e85" data-e="e85" type="number" inputmode="decimal" min="0.3" max="5" step="0.01" value="${E.e85.toFixed(2)}"></label>
+         <label for="e-gpl">GPL (€/L)<input id="e-gpl" data-e="gpl" type="number" inputmode="decimal" min="0.3" max="5" step="0.01" value="${E.gpl.toFixed(2)}"></label>
+         <label for="e-el">Électricité (€/kWh)<input id="e-el" data-e="el" type="number" inputmode="decimal" min="0.05" max="1" step="0.01" value="${E.el.toFixed(2)}"></label>
+       </div>
+       <label class="kit"><input type="checkbox" id="e-kit" ${E.kit?'checked':''}> Rouler à l'E85 avec un boîtier homologué (voitures essence et micro-hybrides essence)</label>
+       <p class="hint">Sert à estimer le coût annuel de chaque voiture à partir de sa consommation WLTP. E85 : surconsommation de 25 % comptée (Ford Kuga FlexiFuel, ou boîtier). GPL : surconsommation de 20 % comptée. Électricité : tarif réglementé option Base (recharge à domicile). Hybrides rechargeables : carburant et électricité, recharges régulières supposées.</p>
+     </div>
+   </section>`; }
+/* Autonomie et recharge : visibles seulement si « Électrique » est choisi */
+const EV_ONLY = new Set(['aut','chg']);
+const evWanted = ()=> S.moto.on && S.moto.val.has('ev');
+const isActive = cr=> S[cr.id].on && !(EV_ONLY.has(cr.id) && !evWanted());
+function syncEv(){ const v=evWanted(); EV_ONLY.forEach(id=>{ const el=document.getElementById('c-'+id); if(el) el.hidden=!v; });
+  const en=document.getElementById('c-energy'); if(en) en.hidden=!S.cost.on; }
+const GROUPS = {price:'Budget', body:'Gabarit', moto:'Motorisation et énergie', box:'Conduite', trunk:'Pratique et sécurité'};
+const OPEN_HINTS = new Set();
+const infoBtn = (id,name)=> `<button type="button" class="info" data-info="${id}" aria-expanded="${OPEN_HINTS.has(id)}" aria-label="Aide : ${name}" title="Aide">i</button>`;
+function critSection(c){ const s=S[c.id], body=CONTROL[c.id](s), hasHint=body.includes('class="hint"');
+  return `${GROUPS[c.id]?`<div class="grp">${GROUPS[c.id]}</div>`:''}
+   <section class="crit ${s.on?'':'off'} ${OPEN_HINTS.has(c.id)?'show-hint':''}" id="c-${c.id}" ${EV_ONLY.has(c.id)&&!evWanted()?'hidden':''}>
+     <div class="crit-h"><label class="t"><input type="checkbox" class="switch" id="sw-${c.id}" data-sw="${c.id}" ${s.on?'checked':''}> ${c.name}</label>${hasHint?infoBtn(c.id,c.name):''}</div>
+     <div class="crit-b">${body}
+       <div class="weight">Importance ${seg(c.id,'w',W_LABELS,s.w)}</div>
+     </div>
+   </section>${c.id==='cost'?settingsBlock():''}`; }
+function brandSection(){ const B=S.brand; return `<div class="grp">Marques</div>
+   <section class="crit ${B.on?'':'off'} ${OPEN_HINTS.has('brand')?'show-hint':''}" id="c-brand">
+     <div class="crit-h"><label class="t"><input type="checkbox" class="switch" id="sw-brand" data-sw="brand" ${B.on?'checked':''}> Marques <small>filtre</small></label>${infoBtn('brand','Marques')}</div>
+     <div class="crit-b">${seg('brand','mode',[['only','Uniquement'],['excl','Exclure']],B.mode)}
+       <div class="chips">${BRANDS.map(v=>`<button type="button" class="chip fl" data-k="brand" data-chip="${v}" aria-pressed="${B.val.has(v)}">${brandFlag(v)}${v}</button>`).join('')}</div>
+       <p class="hint">${B.mode==='only'?'Seules les marques sélectionnées restent dans le classement.':'Les marques sélectionnées sont retirées du classement.'} Ce filtre ne modifie pas les notes.</p>
+     </div>
+   </section>`; }
+function renderForm(){
+  // ordre : Budget, puis Marques, puis les autres groupes
+  document.getElementById('crits').innerHTML = CRITS.map(c=> critSection(c) + (c.id==='price'?brandSection():'')).join('');
+  updateCount();
+}
+function activeCount(){ return CRITS.filter(cr=> isActive(cr) && !((cr.id==='moto'||cr.id==='body') && S[cr.id].val.size===0)).length + (S.brand.on && S.brand.val.size?1:0); }
+function updateCount(){ const n=activeCount(); const txt= n? `${n} critère${n>1?'s':''} actif${n>1?'s':''}` : 'Aucun critère actif';
+  const el=document.getElementById('crit-count'); if(el) el.textContent=txt; const f=document.getElementById('fab-count'); if(f) f.textContent=n?'· '+n:''; }
+const form = document.getElementById('form');
+form.addEventListener('click',e=>{
+  const ib=e.target.closest('[data-info]'); if(ib){ const id=ib.dataset.info, sec=document.getElementById('c-'+id);
+    OPEN_HINTS.has(id)?OPEN_HINTS.delete(id):OPEN_HINTS.add(id); sec.classList.toggle('show-hint',OPEN_HINTS.has(id)); ib.setAttribute('aria-expanded',OPEN_HINTS.has(id)); return; }
+  const b=e.target.closest('button'); if(!b) return;
+  const k=b.dataset.k; if(!k) return;
+  const s=S[k];
+  if(b.dataset.chip){ const v=b.dataset.chip; s.val.has(v)?s.val.delete(v):s.val.add(v); b.setAttribute('aria-pressed',s.val.has(v)); }
+  else if(b.dataset.star){ s.val=+b.dataset.star; rerenderCrit(k); }
+  else if(b.dataset.f){ const f=b.dataset.f, v=b.dataset.v; s[f]= isNaN(+v)?v:+v;
+    b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    if(k==='brand') renderForm(); }
+  hideExample(); update();
+});
+form.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.sw){ S[t.dataset.sw].on=t.checked; document.getElementById('c-'+t.dataset.sw).classList.toggle('off',!t.checked); hideExample(); update(); return; }
+  if(t.tagName==='SELECT' && t.dataset.k==='power'){ const s=S.power; s[t.dataset.f]=+t.value;
+    if(s.max && s.max<=s.min){ if(t.dataset.f==='min') s.max=s.min+50; else s.min=Math.max(50,s.max-50); renderForm(); }
+    hideExample(); update(); return; }
+  if(t.id==='e-kit'){ E.kit=t.checked; update(); return; }
+  if(t.dataset.e){ const v=parseFloat(String(t.value).replace(',','.')); if(v>0){ E[t.dataset.e]=v; update(); } return; }
+  if(t.dataset.num){ const k=t.dataset.k,f=t.dataset.f, v=parseFloat(String(t.value).replace(',','.')); if(!(v>0)) return;
+    if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
+    const sl=document.getElementById(`r-${k}-${f}`); if(sl) sl.value=v; update(); return; }
+  if(t.type==='range'){ const k=t.dataset.k,f=t.dataset.f, v=+t.value;
+    if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
+    const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; update(); }
+});
+function rerenderCrit(){ renderForm(); }
+const COPY_BTN = `<button type="button" class="restart ghost" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copier le résumé</button>`;
+const RESTART_BTN = `<button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Recommencer</button>`;
+let undoState=null;
+function restart(move=true){ undoState={S:structuredClone(S), ex:!document.getElementById('example-note').hidden};
+  S=BLANK(); renderForm(); hideExample(); update();
+  toast('Critères réinitialisés', ()=>{ if(!undoState) return; S=undoState.S; document.getElementById('example-note').hidden=!undoState.ex; undoState=null; renderForm(); update(); closeCrit(); });
+  if(!move) return;
+  if(matchMedia('(max-width:900px)').matches) openCrit();
+  else { window.scrollTo({top:document.getElementById('form').getBoundingClientRect().top+scrollY-16,behavior:'smooth'}); document.getElementById('form').scrollTop=0; }
+}
+document.addEventListener('click',e=>{ if(e.target.closest('[data-restart]')) restart(); });
+function hideExample(){ document.getElementById('example-note').hidden=true; }
+document.getElementById('btn-reset').onclick=()=>restart(false);
+document.getElementById('btn-example').onclick=()=>{ S=EXAMPLE(); E.km=15000; renderForm(); document.getElementById('example-note').hidden=false; update(); };
+
+/* ---------- Calcul ---------- */
+// à note égale : 1) prix le plus bas 2) coût de l'énergie le plus bas 3) autonomie électrique la plus grande
+// 4) puissance la plus élevée 5) marque française devant les marques étrangères
+function tieBreak(a,b){
+  return ((a.p??1e9)-(b.p??1e9))
+      || ((energyCost(a)??1e9)-(energyCost(b)??1e9))
+      || ((b.aut||0)-(a.aut||0))
+      || ((b.hp||0)-(a.hp||0))
+      || ((NATION[b.b]==='France')-(NATION[a.b]==='France'));
+}
+// le prix d'achat pèse 1,5 fois plus que les autres critères
+const PRICE_COEF = 1.5;
+const effW = (cr,s)=> s.w*(cr.id==='price'?PRICE_COEF:1);
+function evaluate(c){
+  let num=0, den=0, failed=false; const parts=[];
+  CRITS.forEach(cr=>{ const s=S[cr.id]; if(!isActive(cr)) return;
+    if((cr.id==='moto'||cr.id==='body') && s.val.size===0) return;
+    const r=cr.score(c,s); if(!r) return;
+    const [v,txt]=r, w=effW(cr,s); num+=v*w; den+=w; parts.push({cr,v,txt,w});
+    if(s.w===3 && v<.5) failed=true;
+  });
+  return {car:c, raw: den? 100*num/den:null, score: den? Math.round(100*num/den):null, parts, failed};
+}
+// 80 et plus : vert · 60 à 79 : jaune orangé · 40 à 59 : orange · moins de 40 : rouge
+const color = sc => sc>=80?'var(--s80)':sc>=60?'var(--s60)':sc>=40?'var(--s40)':'var(--s0)';
+const verdict = sc => sc>=88?'Correspondance excellente':sc>=75?'Très bonne correspondance':sc>=60?'Bonne correspondance':sc>=40?'Correspondance partielle':'Faible correspondance';
+
+/* ---------- Compteur ---------- */
+function gauge(sc){
+  const cx=120, cy=118, R=96, a0=225, sweep=270;
+  const pt=(deg,r)=>{ const a=(a0-deg)*Math.PI/180; return [cx+r*Math.cos(a), cy-r*Math.sin(a)]; };
+  const arc=(from,to,r)=>{ const [x1,y1]=pt(from,r),[x2,y2]=pt(to,r); const large=(to-from)>180?1:0; return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`; };
+  let ticks='';
+  for(let i=0;i<=100;i+=5){ const d=i/100*sweep, major=i%10===0; const [x1,y1]=pt(d,R-12), [x2,y2]=pt(d,R-(major?24:18));
+    ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--muted)" stroke-width="${major?2:1}"/>`;
+    if(i%20===0 && i>0 && i<100){ const [tx,ty]=pt(d,R-38); ticks+=`<text x="${tx.toFixed(1)}" y="${(ty+4).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${i}</text>`; } }
+  const d=Math.max(.5,sc)/100*sweep; const [nx,ny]=pt(d,R-44);
+  return `<svg viewBox="0 0 240 222" role="img" aria-label="Note ${sc} sur 100">
+    <path d="${arc(0,sweep,R)}" fill="none" stroke="var(--track)" stroke-width="10" stroke-linecap="round"/>
+    <path d="${arc(0,d,R)}" fill="none" stroke="${color(sc)}" stroke-width="10" stroke-linecap="round"/>
+    ${ticks}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="7" fill="var(--ink)"/>
+    <text x="${cx}" y="${cy+74}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="46" fill="var(--ink)">${sc}</text>
+    <text x="${cx}" y="${cy+94}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--muted)">/ 100</text>
+  </svg>`;
+}
+
+/* ---------- Rendus ---------- */
+const silFor = c=>{ const k=c.tags.find(t=>SIL[t]) || (c.tags.includes('Limousine')?'Berline':c.tags.includes('Roadster')?'Cabriolet':'Berline'); return silhouette(k); };
+/* Point faible : le critère où la voiture perd le plus de points */
+function weakPoint(r){ if(!r.parts.length) return null;
+  const p=r.parts.reduce((a,b)=> b.v<a.v?b:a); if(p.v>=.8) return {ok:true, txt:'Remplit tous vos critères'};
+  const c=r.car, s=S[p.cr.id], soft=p.v>=.4;
+  if(p.v===UNKNOWN && /n\.c\.|non testée/.test(p.txt)) return {txt: p.cr.id==='ncap'?'Non testée Euro NCAP':'Donnée manquante ('+p.cr.short.toLowerCase()+')'};
+  const M={ price:()=> soft?'Un peu au-dessus du budget':'Au-dessus du budget',
+    cost:()=> soft?'Énergie un peu chère à l’usage':'Énergie chère à l’usage',
+    trunk:()=> soft?'Coffre un peu juste':'Coffre trop petit',
+    aut:()=> c.plug?(soft?'Autonomie un peu juste':'Autonomie insuffisante'):'Pas de batterie rechargeable',
+    chg:()=> c.plug?(soft?'Recharge un peu lente':'Recharge lente'):'Pas de recharge',
+    ncap:()=> 'Moins d’étoiles Euro NCAP que souhaité',
+    power:()=> c.hp<s.min?'Moins puissante que souhaité':'Plus puissante que souhaité',
+    body:()=> 'Carrosserie différente', moto:()=> 'Motorisation différente',
+    seats:()=> s.val==='gt5'?'Pas de 7 places':'Plus de 5 places',
+    box:()=> c.bx==='A'?'Boîte automatique':'Boîte manuelle',
+    trans:()=> c.tr==='AWD'?'4 roues motrices':'Pas de 4 roues motrices' };
+  return {txt:(M[p.cr.id]||(()=>p.cr.short))()}; }
+const wpSpan = r=>{ const w=weakPoint(r); return w?`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ ':'Point faible : '}${w.txt}</span>`:''; };
+const wpTag = r=>{ const w=weakPoint(r); return w?`<span class="tag ${w.ok?'ok':'wp-tag'}">${w.ok?'✓ ':'Point faible : '}${w.txt}</span>`:''; };
+/* Autres versions d'un modèle */
+let VERS=new Map(), MODEL_MODE=true;
+function versBtn(c){ if(!MODEL_MODE) return ''; const l=VERS.get(c.b+'|'+c.m)||[]; const n=l.length-1; if(n<1) return '';
+  return `<button type="button" class="vers-btn" data-vers="${c.b}|${c.m}">+${n}<span class="lbl"> autre${n>1?'s':''} version${n>1?'s':''}</span></button>`; }
+function openVersions(key){ const l=VERS.get(key)||[]; if(!l.length) return; const c0=l[0].car; lastFocus=document.activeElement;
+  const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
+  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${l.length} versions</div><h2 id="cmp-title">${brandFlag(c0.b)} ${c0.b} ${c0.m}</h2><div class="c-ver">Toutes les versions qui passent vos filtres, de la mieux notée à la moins bien notée.</div><div class="sheet-site">${siteBtn(c0,true)}</div></div><button type="button" class="x" data-close>Fermer</button></div>
+    <div class="vlist">${l.map(r=>{ const c=r.car; return `<div class="vrow"><span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
+      <div style="min-width:0"><div class="nm">${c.v}</div><div class="mini">${wpSpan(r)}<span>${ENERGY[c.e]}</span><span>${c.hp} ch</span><span>${c.bx==='A'?'Auto':'Manuelle'}</span>${c.e==='ev'&&c.aut?`<span>${c.aut} km</span>`:(c.l!=null?`<span>${fmt(c.l,1)} L/100</span>`:'')}</div></div>
+      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>${cmpBtn(c)}</div>`; }).join('')}</div>`;
+  const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-vers]'); if(b){ e.stopPropagation(); openVersions(b.dataset.vers); } });
+/* Résumé à copier */
+function summaryText(){ const L=[];
+  CRITS.forEach(cr=>{ if(!isActive(cr)) return; const s=S[cr.id]; let v='';
+    switch(cr.id){
+      case 'price': v='budget maximum '+eur(s.val); break;
+      case 'body': if(!s.val.size) return; v=[...s.val].join(' ou '); break;
+      case 'seats': v=s.val==='gt5'?'plus de 5 places':'5 places ou moins'; break;
+      case 'moto': if(!s.val.size) return; v=[...s.val].map(x=>(MOTO_OPTS.find(o=>o[0]===x)||[x,x])[1]).join(' ou '); break;
+      case 'power': v=s.min+(s.max?' à '+s.max+' ch':' ch et plus'); break;
+      case 'cost': v='énergie maximum '+fmt(s.val)+' €/an'; break;
+      case 'aut': v='autonomie minimum '+s.val+' km'; break;
+      case 'chg': v='recharge minimum '+s.val+' kW'; break;
+      case 'box': v=s.val==='A'?'boîte automatique':'boîte manuelle'; break;
+      case 'trans': v=s.val==='awd'?'4 roues motrices':'2 roues motrices'; break;
+      case 'trunk': v='coffre minimum '+s.val+' L'; break;
+      case 'ncap': v='Euro NCAP '+s.val+' étoiles minimum'; break;
+    }
+    L.push(v+(s.w===3?' (impératif)':'')); });
+  const B=S.brand; if(B.on && B.val.size) L.push((B.mode==='only'?'marques : ':'sans : ')+[...B.val].join(', '));
+  const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.v} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
+  const w=lastList[0]&&SITE[lastList[0].car.b]?`\n\nSite officiel ${lastList[0].car.b} : ${SITE[lastList[0].car.b]}`:'';
+  return `Mon Auto Idéale\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}`; }
+function toast(msg,undo){ const t=document.getElementById('toast'); t.innerHTML=''; const s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
+  if(undo){ const b=document.createElement('button'); b.type='button'; b.textContent='Annuler'; b.onclick=()=>{ t.hidden=true; undo(); }; t.appendChild(b); }
+  t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>{t.hidden=true;}, undo?6000:2600); }
+function copyFallback(txt){ lastFocus=document.activeElement; const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
+  sh.innerHTML=`<div class="sheet-h"><h2 id="cmp-title">Résumé de ma recherche</h2><button type="button" class="x" data-close>Fermer</button></div>
+    <p class="hint" style="display:block;margin-bottom:8px">La copie automatique n'est pas disponible ici : le texte est sélectionné, copiez-le avec Ctrl+C (ou un appui long sur mobile).</p>
+    <textarea class="sumtxt" readonly rows="9">${txt.replace(/</g,'&lt;')}</textarea>`;
+  const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; const ta=sh.querySelector('textarea'); ta.focus(); ta.select(); }
+document.addEventListener('click',e=>{ if(!e.target.closest('[data-copy]')) return; const txt=summaryText();
+  try{ navigator.clipboard.writeText(txt).then(()=>toast('Résumé copié : collez-le où vous voulez'),()=>copyFallback(txt)); }catch(err){ copyFallback(txt); } });
+const scoreStyle = sc=> `background:${color(sc)}`+(sc>=60&&sc<80?';color:var(--s60-ink)':'');
+const MEDAL={1:['#F7DC6F','#D4AC0D','#7D6608','d’or'],2:['#EEF1F3','#B3BCC2','#5F6A70','d’argent'],3:['#EDB383','#B87333','#6E3B12','de bronze']};
+function medal(n,size=44){ const [l,m,d,lab]=MEDAL[n];
+  return `<svg class="medal-ic" width="${size}" height="${Math.round(size*1.25)}" viewBox="0 0 40 50" role="img" aria-label="Médaille ${lab}">
+    <path d="M9 0 H18 L24 15 H15 Z" fill="#0B7A55"/><path d="M31 0 H22 L16 15 H25 Z" fill="#14A374"/>
+    <circle cx="20" cy="32" r="16" fill="${m}" stroke="${d}" stroke-width="1.5"/>
+    <circle cx="20" cy="32" r="11.5" fill="${l}" stroke="${d}" stroke-width="1"/>
+    <path d="M13 26 Q20 21 27 26" fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="20" y="37.5" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="16" fill="${d}">${n}</text></svg>`; }
+/* Sites officiels des constructeurs (France) */
+const SITE = META.SITE;
+const EXT_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>';
+const siteName = b=> b==='DS Automobiles'?'DS':b;
+const siteBtn = (c,big)=> SITE[c.b]?`<a class="site-${big?'btn':'link'}" href="${SITE[c.b]}" target="_blank" rel="noopener noreferrer" title="Ouvrir le site officiel ${c.b} dans un nouvel onglet">${big?'Voir sur le site '+siteName(c.b):'Site '+siteName(c.b)}${EXT_IC}</a>`:'';
+const SOON = c=> c.y && c.y>new Date().getFullYear();
+const endBadge = c=> (SOON(c)?`<span class="tag warn">Arrivée prévue en ${c.y}</span>`:'')+(eligibleAid(c)?`<span class="tag ok">${AID_TXT}</span>`:'')+(c.end?`<span class="tag warn">Fin de commercialisation ${c.end}</span>`:'');
+const keyTags = c=>{ const t=[ENERGY[c.e], c.c, c.pl+' places', c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
+  if(c.e==='ev'){ if(c.aut) t.push(c.aut+' km'); } else if(c.l!=null) t.push(fmt(c.l,1)+' L/100'); if(c.tk) t.push(c.tk+' L de coffre'); if(c.tr==='AWD') t.push('4 roues motrices'); const ec=energyCost(c); if(ec!=null) t.push(fmtCost(ec)+' d\'énergie'); return t; };
+const breakdown = r=> `<ul class="breakdown">${r.parts.map(p=>{ const pc=Math.round(p.v*100);
+  return `<li><span class="bn">${p.cr.short}</span><span class="bv">${p.txt}</span><span class="bar"><i style="width:${pc}%;background:${color(pc)}"></i></span><span class="bs">${pc}</span></li>`}).join('')}</ul>`;
+const specs = c=>{ const rows=[
+  ['Marque',c.b+' · '+(ADJ[NATION[c.b]]||'')],
+  ['Motorisation',ENERGY[c.e]+(c.ffv?' · FlexiFuel E85':'')+(c.eng&&c.eng!=='EV'?' · '+c.eng:'')],
+  ['Puissance',c.hp?c.hp+' ch':null],['Couple',c.nm?c.nm+' Nm':null],['0 à 100 km/h',c.acc?fmt(c.acc,1)+' s':null],
+  ['Conso. WLTP',c.l!=null?fmt(c.l,1)+' L/100 km':null],['Conso. élec.',c.kwh!=null?fmt(c.kwh,1)+' kWh/100 km':null],
+  ['Coût énergie',energyCost(c)!=null?fmtCost(energyCost(c))+' · '+fuelNote(c)+' · '+fmt(E.km)+' km':null],
+  ['CO₂',c.co2!=null?c.co2+' g/km · classe '+c.cls:null],['Batterie',c.bat?fmt(c.bat,1)+' kWh':null],
+  ['Autonomie élec.',c.aut?c.aut+' km':null],['Recharge max.',c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null],
+  ['Boîte',c.bxl],['Transmission',TR[c.tr]],['Places / portes',c.pl+' / '+c.dr],['Longueur',c.len?fmt(c.len,2)+' m':null],
+  ['Poids à vide',c.w?fmt(c.w)+' kg':null],['Coffre',c.tk?c.tk+' L':null],['Euro NCAP',c.nc?c.nc+' étoiles':'non testée'],
+  ["Crit'Air",c.ca!=null?String(c.ca):null],['Commercialisée depuis',c.y?String(c.y):null],['Fin de commercialisation',c.end?String(c.end):null],
+  ['Aides à l\'achat',c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],['Prix',c.p==null?'n.c.':'à partir de '+eur(c.p)]];
+  return `<dl class="specs">${rows.filter(r=>r[1]).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`; };
+/* Mise en page aérée : l'essentiel visible, le reste dans des volets dépliables */
+const tile = (v,l)=> `<div class="tile"><b class="num">${v}</b><span>${l}</span></div>`;
+function statTiles(c){ const t=[];
+  if(c.e==='ev') t.push(tile(c.aut?c.aut+' km':'—','Autonomie'));
+  else if(c.e==='phev') t.push(tile(c.aut?c.aut+' km':'—','Autonomie élec.'));
+  else t.push(tile(c.l!=null?fmt(c.l,1)+' L':'—','Conso. /100 km'));
+  t.push(tile(c.hp?c.hp+' ch':'—','Puissance'));
+  t.push(tile(c.tk?c.tk+' L':'—','Coffre'));
+  t.push(tile(c.nc?c.nc+' ★':'—','Euro NCAP'));
+  return `<div class="tiles">${t.join('')}</div>`; }
+const specLine = c=>{ const v=(c.v||'').toLowerCase(); const en=ENERGY[c.e]||'';
+  return [v.includes(en.toLowerCase().slice(0,6))?null:en, c.hp&&!v.includes(c.hp+' ch')?c.hp+' ch':null, c.e==='ev'&&c.aut?c.aut+' km':(c.l!=null&&c.e!=='ev'?fmt(c.l,1)+' L/100':null)].filter(Boolean).join(' · '); };
+const verLine = c=>{ const s=specLine(c); return s?c.v+' · '+s:c.v; };
+function badges(r){ const c=r.car, w=weakPoint(r), b=[];
+  if(w) b.push(`<span class="bdg ${w.ok?'ok':'wp'}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`);
+  if(eligibleAid(c)) b.push(`<span class="bdg aid">Aides à l'achat</span>`);
+  if(c.end) b.push(`<span class="bdg warn">Fin de série ${c.end}</span>`);
+  if(SOON(c)) b.push(`<span class="bdg warn">Arrive en ${c.y}</span>`);
+  return b.length?`<div class="bdgs">${b.join('')}</div>`:''; }
+function avisLead(c){ const a=avisOf(c); return a?`<blockquote class="lead"><span class="avis-k">Notre avis</span>${esc(a.v)}</blockquote>`:''; }
+function avisFull(c){ const a=avisOf(c); if(!a) return '';
+  return `<details class="fold"><summary>Lire notre avis complet</summary><div class="fold-b avis">
+    <div class="avis-cols">
+      <div><h5 class="pl">Points forts</h5><ul class="pl">${a.p.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div><h5 class="mn">Points faibles</h5><ul class="mn">${a.m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+    </div>
+    <p class="avis-q"><b>Pour qui ?</b> ${esc(a.q)}</p>
+    ${a.s?`<p class="avis-s"><b>Bon à savoir</b> ${esc(a.s)}</p>`:''}</div></details>`; }
+const whyScore = (r,open)=> `<details class="fold"${open?' open':''}><summary>Pourquoi ${r.score}/100 ?</summary><div class="fold-b">${breakdown(r)}<p class="weights-note">${weightNote()}</p></div></details>`;
+const specsFold = c=> `<details class="fold"><summary>Fiche technique complète</summary><div class="fold-b">${specs(c)}</div></details>`;
+const actions = (c,primary)=> `<div class="acts2"><a class="fiche-link" href="${ficheUrl(c)}">Fiche du modèle</a>${primary?siteBtn(c,true):''}${cmpBtn(c)}${versBtn(c)}${primary?'':siteBtn(c)}</div>`;
+const weightNote = ()=>{ const on=CRITS.filter(isActive); return on.length?'Pondération : '+on.map(c=>c.short+' ×'+fmt(effW(c,S[c.id]),effW(c,S[c.id])%1?1:0)).join(' · ')+(on.some(c=>c.id==='price')?' (le prix compte 1,5 fois plus que les autres critères)':''):''; };
+
+let shown=20, lastList=[];
+function update(){
+  syncEv(); updateCount();
+  const opts={model:document.getElementById('opt-model').checked, strict:document.getElementById('opt-strict').checked};
+  let res=CARS.map(evaluate);
+  const active=res.length && res[0].parts.length>0;
+  const best=document.getElementById('best'), list=document.getElementById('list');
+  if(!active){
+    best.innerHTML=`<div class="empty">Activez au moins un critère pour obtenir une note sur 100.<div class="acts"><button type="button" class="open-c" data-open-crit>Choisir mes critères</button></div></div>`; document.getElementById('restart-end').hidden=true;
+    list.innerHTML=''; document.getElementById('more').hidden=true; document.getElementById('list-title').textContent=''; document.getElementById('podium-wrap').hidden=true;
+    setBar(null); return;
+  }
+  if(opts.strict) res=res.filter(r=>!r.failed);
+  const B=S.brand; if(B.on && B.val.size) res=res.filter(r=> B.mode==='only' ? B.val.has(r.car.b) : !B.val.has(r.car.b));
+  res.sort((a,b)=> b.score-a.score || tieBreak(a.car,b.car));
+  VERS=new Map(); res.forEach(r=>{ const k=r.car.b+'|'+r.car.m; if(!VERS.has(k)) VERS.set(k,[]); VERS.get(k).push(r); });
+  MODEL_MODE=opts.model;
+  if(opts.model){ const seen=new Set(); res=res.filter(r=>{ const k=r.car.b+'|'+r.car.m; if(seen.has(k)) return false; seen.add(k); return true; }); }
+  // à note égale, la moins chère passe devant (tri ci-dessus) ; le rang suit la position
+  res.forEach((r,i)=>{ r.rank=i+1; });
+  if(!res.length){
+    best.innerHTML=`<div class="empty">Aucune voiture ne correspond. Élargissez le filtre de marques, passez un critère impératif en « Important » ou décochez « Masquer les voitures qui ratent un critère impératif ».<div class="acts"><button type="button" class="open-c" data-open-crit>Modifier mes critères</button>${RESTART_BTN}</div></div>`; document.getElementById('restart-end').hidden=true;
+    list.innerHTML=''; document.getElementById('more').hidden=true; document.getElementById('list-title').textContent=''; document.getElementById('podium-wrap').hidden=true; setBar(null); return;
+  }
+  const top=res[0], c=top.car;
+  document.getElementById('restart-end').hidden=false;
+  best.innerHTML=`<div class="reveal-row"><p class="reveal">Et votre voiture <em>idéale</em> est…</p><div class="rr-act">${COPY_BTN}${RESTART_BTN}</div></div><article class="best">
+    <div class="gauge-pane gauge">${medal(1,48)}<div class="medal">N° 1 sur ${fmt(res.length)} ${opts.model?'modèles':'versions'}</div>${gauge(top.score)}<div class="verdict" style="color:${color(top.score)}">${verdict(top.score)}</div></div>
+    <div class="best-body">
+      <div class="best-sil">${silFor(c)}</div>
+      <h3>${c.b} ${c.m}</h3>
+      <p class="ver">${flag(NATION[c.b])} ${c.v}</p>
+      <div class="price-row"><div class="price num">${c.p==null?'Prix n.c.':`<small class="from">À partir de</small>${eur(c.p)}`}</div></div>
+      ${actions(c,true)}
+      ${badges(top)}
+      ${statTiles(c)}
+      ${avisLead(c)}
+      <div class="folds">${whyScore(top)}${avisFull(c)}</div>
+    </div></article>`;
+
+  lastList=res;
+  document.getElementById('list-title').innerHTML=res.length>3?`La suite du classement <small>${fmt(res.length-3)} autres ${opts.model?'modèles':'versions'}</small>`:'';
+  renderList();
+  setBar(top);
+}
+function renderList(){
+  const pod=lastList.slice(1,3);
+  document.getElementById('podium-wrap').hidden=!pod.length;
+  document.getElementById('podium').innerHTML = pod.map(r=>{ const c=r.car, idx=lastList.indexOf(r);
+    return `<article class="pcard">
+      <span class="place">${medal(r.rank,34)}</span>
+      <div class="psil">${silFor(c)}</div>
+      <div><h3>${brandFlag(c.b)} ${c.b} ${c.m}</h3><div class="pver">${verLine(c)}</div></div>
+      ${badges(r)}
+      <div class="pfoot"><span class="pr num" style="text-align:left">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
+        <span class="score num" style="${scoreStyle(r.score)};padding:6px 14px">${r.score}<small>/100</small></span></div>
+      <div class="pact"><button type="button" class="fiche-btn" data-fiche="${idx}">Voir le détail</button>${cmpBtn(c)}</div>
+    </article>`; }).join('');
+  const items=lastList.slice(3,shown+3);
+  document.getElementById('list').innerHTML = items.map(r=>{ const c=r.car; const rank=r.rank, idx=lastList.indexOf(r);
+    return `<div class="row"><div class="row-top"><button type="button" class="row-btn" aria-expanded="false" data-i="${idx}">
+      <span class="rk num">${rank}</span>
+      <span class="rsil">${silFor(c)}</span>
+      <span class="rmain"><span class="nm">${brandFlag(c.b)} ${c.b} ${c.m}</span>
+        <span class="rver">${verLine(c)}</span>
+        ${(()=>{ const w=weakPoint(r); const x=[]; if(w) x.push(`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`); if(eligibleAid(c)) x.push('<span class="aidt">Aides</span>'); if(c.end) x.push(`<span class="warn-t">Fin de série ${c.end}</span>`); if(SOON(c)) x.push(`<span class="warn-t">Arrive en ${c.y}</span>`); return x.length?`<span class="rflags">${x.join('')}</span>`:''; })()}</span>
+      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
+      <span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
+    </button><span class="row-act">${cmpBtn(c)}</span></div><div class="detail" hidden></div></div>`; }).join('');
+  document.getElementById('more').hidden = lastList.length<=shown+3;
+}
+/* Fiche détaillée (podium) dans une fenêtre */
+function openFiche(r){ const c=r.car; lastFocus=document.activeElement;
+  const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
+  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${r.rank}e place · ${r.score}/100</div><h2 id="cmp-title">${brandFlag(c.b)} ${c.b} ${c.m}</h2><div class="c-ver">${c.v} · ${c.p==null?'prix n.c.':'à partir de '+eur(c.p)}</div></div><button type="button" class="x" data-close>Fermer</button></div>
+    ${actions(c,true)}${badges(r)}${statTiles(c)}${avisLead(c)}
+    <div class="folds">${whyScore(r,true)}${avisFull(c)}${specsFold(c)}</div>`;
+  const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
+document.getElementById('podium').addEventListener('click',e=>{ const b=e.target.closest('[data-fiche]'); if(b) openFiche(lastList[+b.dataset.fiche]); });
+document.getElementById('list').addEventListener('click',e=>{
+  const b=e.target.closest('.row-btn'); if(!b) return;
+  const det=b.closest('.row').querySelector('.detail'), open=b.getAttribute('aria-expanded')==='true';
+  if(!open && !det.innerHTML){ const r=lastList[+b.dataset.i];
+    det.innerHTML=`<div class="det-in">${actions(r.car,true)}${statTiles(r.car)}${avisLead(r.car)}<div class="folds">${whyScore(r)}${avisFull(r.car)}${specsFold(r.car)}</div></div>`; }
+  det.hidden=open; b.setAttribute('aria-expanded',String(!open));
+});
+document.getElementById('more').onclick=()=>{ shown+=20; renderList(); };
+['opt-model','opt-strict'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{ shown=20; update(); }));
+
+/* ---------- Comparateur ---------- */
+let CMP=[];
+const cmpLabel = on=> on?'<span aria-hidden="true">✓</span><span class="lbl"> Comparée</span>':'<span aria-hidden="true">+</span><span class="lbl"> Comparer</span>';
+function cmpBtn(c){ const on=CMP.includes(c.id); return `<button type="button" class="cmp" data-id="${c.id}" aria-pressed="${on}" aria-label="${on?'Retirer':'Ajouter'} ${c.b} ${c.m} ${on?'de':'à'} la comparaison">${cmpLabel(on)}</button>`; }
+let trayMsg='';
+function toggleCmp(id){ const i=CMP.indexOf(id);
+  if(i>=0) CMP.splice(i,1); else if(CMP.length>=3){ trayMsg='3 voitures maximum : retirez-en une.'; } else CMP.push(id);
+  syncCmp(); }
+function syncCmp(){
+  document.querySelectorAll('.cmp').forEach(b=>{ const on=CMP.includes(+b.dataset.id); b.setAttribute('aria-pressed',on); b.innerHTML=cmpLabel(on); });
+  const tray=document.getElementById('tray');
+  if(!CMP.length){ tray.hidden=true; document.body.classList.remove('has-tray'); closeCompare(); return; }
+  tray.hidden=false; document.body.classList.add('has-tray');
+  const msg = trayMsg || (CMP.length<2?'Ajoutez une deuxième voiture.':''); trayMsg='';
+  tray.innerHTML=`<div class="items">${CMP.map(id=>{ const c=CARS[id]; return `<span class="it">${brandFlag(c.b)}<span>&nbsp;${c.b} ${c.m}</span><button type="button" data-rm="${id}" aria-label="Retirer ${c.b} ${c.m}">×</button></span>`; }).join('')}</div>
+    ${msg?`<span class="msg">${msg}</span>`:''}
+    <button type="button" class="clear" data-clear>Vider</button>
+    <button type="button" class="go" data-open ${CMP.length<2?'disabled':''}>Comparer (${CMP.length})</button>`;
+  if(!document.getElementById('cmp-view').hidden) renderCompare();
+}
+const SPEC_ROWS = [
+  ['Prix', c=>c.p, c=>c.p==null?'n.c.':'à partir de '+eur(c.p), 'lo'],
+  ['Aides à l\'achat', null, c=>c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],
+  ['Fin de commercialisation', null, c=>c.end?String(c.end):'—'],
+  ['Marque', null, c=>brandFlag(c.b)+' '+(ADJ[NATION[c.b]]||'')],
+  ['Motorisation', null, c=>ENERGY[c.e]],
+  ['Carrosserie', null, c=>c.c],
+  ['Puissance', c=>c.hp, c=>c.hp!=null?c.hp+' ch':null, 'hi'],
+  ['Couple', c=>c.nm, c=>c.nm?c.nm+' Nm':null, 'hi'],
+  ['0 à 100 km/h', c=>c.acc, c=>c.acc?fmt(c.acc,1)+' s':null, 'lo'],
+  ['Conso. carburant', c=>c.l, c=>c.l!=null?fmt(c.l,1)+' L/100 km':null, 'lo'],
+  ['Conso. électrique', c=>c.kwh, c=>c.kwh!=null?fmt(c.kwh,1)+' kWh/100 km':null, 'lo'],
+  ['Coût énergie / an', energyCost, c=>{ const v=energyCost(c); return v==null?null:fmtCost(v)+' · '+fuelNote(c); }, 'lo'],
+  ['CO₂', c=>c.co2, c=>c.co2!=null?c.co2+' g/km':null, 'lo'],
+  ['Autonomie élec.', c=>c.aut, c=>c.aut?c.aut+' km':null, 'hi'],
+  ['Batterie', c=>c.bat, c=>c.bat?fmt(c.bat,1)+' kWh':null, 'hi'],
+  ['Recharge max.', c=>c.kw, c=>c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null, 'hi'],
+  ['Boîte', null, c=>c.bx==='A'?'Automatique':'Manuelle '+c.bxl.replace('BVM','')+' rapports'],
+  ['Transmission', null, c=>TR[c.tr]],
+  ['Places / portes', null, c=>c.pl+' / '+c.dr],
+  ['Longueur', null, c=>c.len?fmt(c.len,2)+' m':null],
+  ['Poids à vide', c=>c.w, c=>c.w?fmt(c.w)+' kg':null, 'lo'],
+  ['Coffre', c=>c.tk, c=>c.tk?c.tk+' L':null, 'hi'],
+  ['Euro NCAP', c=>c.nc, c=>c.nc?'★'.repeat(c.nc)+' '+c.nc+'/5':'non testée', 'hi'],
+  ["Crit'Air", c=>c.ca, c=>c.ca!=null?String(c.ca):null, 'lo'],
+  ['Commercialisée depuis', null, c=>c.y?String(c.y):null],
+];
+function winners(vals,better){ if(!better) return []; const ok=vals.map((v,i)=>[v,i]).filter(([v])=>v!=null);
+  if(ok.length<2) return []; const best = better==='hi'?Math.max(...ok.map(x=>x[0])):Math.min(...ok.map(x=>x[0]));
+  if(ok.every(([v])=>v===best)) return []; return ok.filter(([v])=>v===best).map(x=>x[1]); }
+function losers(vals,better){ if(!better) return []; return winners(vals, better==='hi'?'lo':'hi'); }
+function renderCompare(){
+  const cars=CMP.map(id=>CARS[id]), evs=cars.map(evaluate), n=cars.length;
+  const row=(label,vals,cells,better)=>{ const w=winners(vals,better), l=losers(vals,better);
+    return `<tr><th scope="row">${label}</th>${cells.map((x,i)=>`<td class="${w.includes(i)?'win':l.includes(i)?'lose':''}">${x??'—'}</td>`).join('')}</tr>`; };
+  const sec=t=>`<tr class="sec"><th colspan="${n+1}">${t}</th></tr>`;
+  let body='';
+  if(evs[0].parts.length){
+    body+=sec('Correspondance à vos critères');
+    body+=row('Note globale', evs.map(e=>e.raw), evs.map(e=>`<span class="c-score">${e.score}</span> / 100`), 'hi');
+    CRITS.forEach(cr=>{ const parts=evs.map(e=>e.parts.find(p=>p.cr===cr)); if(!parts.some(Boolean)) return;
+      body+=row(cr.short, parts.map(p=>p?p.v:null), parts.map(p=>p?`<b>${Math.round(p.v*100)}</b> · ${p.txt}`:'—'), 'hi'); });
+  }
+  if(cars.some(avisOf)){ body+=sec('Notre avis');
+    body+=row('En bref', [], cars.map(c=>avisOf(c)?`<span class="c-txt">${esc(avisOf(c).v)}</span>`:null));
+    body+=row('Points forts', [], cars.map(c=>avisOf(c)?`<ul class="c-ul pl">${avisOf(c).p.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:null));
+    body+=row('Points faibles', [], cars.map(c=>avisOf(c)?`<ul class="c-ul mn">${avisOf(c).m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:null)); }
+  body+=sec('Fiche technique');
+  SPEC_ROWS.forEach(([label,get,show,better])=>{ const cells=cars.map(show); if(cells.every(x=>x==null)) return;
+    body+=row(label, get?cars.map(get):[], cells, get?better:null); });
+  document.getElementById('cmp-sheet').classList.remove('narrow');
+  document.getElementById('cmp-sheet').innerHTML=`
+    <div class="sheet-h"><h2 id="cmp-title">Comparaison</h2><button type="button" class="x" data-close>Fermer</button></div>
+    <div class="ctable-wrap"><table class="ctable" style="min-width:${105+n*120}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
+      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${c.b} ${c.m}</div><div class="c-ver">${c.v}</div>${siteBtn(c)}<button type="button" class="rm" data-rm="${c.id}">Retirer</button></th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <p class="legend">▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Les notes sont calculées avec vos critères actuels.</p>`;
+}
+let lastFocus=null;
+function openCompare(){ if(CMP.length<2) return; lastFocus=document.activeElement; renderCompare();
+  const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
+function closeCompare(){ const v=document.getElementById('cmp-view'); if(v.hidden) return; v.hidden=true; document.body.style.overflow=''; if(lastFocus) try{lastFocus.focus()}catch(e){} }
+document.addEventListener('click',e=>{
+  const c=e.target.closest('.cmp'); if(c){ toggleCmp(+c.dataset.id); return; }
+  const rm=e.target.closest('[data-rm]'); if(rm){ toggleCmp(+rm.dataset.rm); if(CMP.length<2) closeCompare(); return; }
+  if(e.target.closest('[data-clear]')){ CMP=[]; syncCmp(); return; }
+  if(e.target.closest('[data-open]')){ openCompare(); return; }
+  if(e.target.closest('[data-close]') || e.target.id==='cmp-view'){ closeCompare(); return; }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCompare(); });
+
+/* Barre mobile */
+function setBar(){}
+/* Mobile : les critères s'ouvrent par-dessus les résultats */
+function openCrit(){ document.body.classList.add('crit-open'); document.getElementById('form').scrollTop=0; }
+function closeCrit(){ document.body.classList.remove('crit-open'); document.getElementById('resultats').scrollIntoView({block:'start'}); }
+document.addEventListener('click',e=>{ if(e.target.closest('[data-open-crit]')) openCrit(); else if(e.target.closest('[data-close-crit]')) closeCrit(); });
+
+/* Stats */
+const models=new Set(CARS.map(c=>c.b+'|'+c.m)), brands=new Set(CARS.map(c=>c.b));
+document.getElementById('stats').innerHTML=`<p class="pitch">Trouvez votre voiture idéale parmi <b class="num">${models.size}</b> modèles de <b class="num">${brands.size}</b> marques</p>`;
+document.getElementById('parade').innerHTML=['Citadine','SUV urbain','Berline','Sportive','Break','Tout-terrain'].map(silhouette).join('');
+
+renderForm(); update();
+})();
+</script>

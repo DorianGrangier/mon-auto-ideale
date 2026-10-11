@@ -1,0 +1,262 @@
+"""Génère le site statique « Mon Auto Idéale » dans dist/.
+
+Usage : python3 scripts/build_site.py [dossier_sortie]
+Entrées : data/data.json (versions), data/avis.json (avis par modèle), data/meta.json (pays, drapeaux,
+sites constructeurs, liste des modèles éligibles aux aides, silhouettes), src/index.body.html, assets/.
+Variable d'environnement SITE_URL (ex. https://pseudo.github.io/mon-auto-ideale/) pour les liens absolus.
+"""
+import json, os, re, shutil, sys, unicodedata, html, datetime
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'dist')
+SITE_URL = os.environ.get('SITE_URL', '').rstrip('/') + '/' if os.environ.get('SITE_URL') else ''
+
+def load(p): return json.load(open(os.path.join(ROOT, p), encoding='utf-8'))
+CARS = load('data/data.json'); AVIS = load('data/avis.json'); META = load('data/meta.json')
+NATION, ADJ, SITE, ENERGY, TR, SILS = META['NATION'], META['ADJ'], META['SITE'], META['ENERGY'], META['TR'], META['SILS']
+FLAGS = META['FLAG_SVG']; SCORE_ENV = set(META['SCORE_ENV'])
+TODAY = datetime.date.today()
+
+def slug(s):
+    s = unicodedata.normalize('NFD', s); s = ''.join(ch for ch in s if unicodedata.category(ch) != 'Mn')
+    return re.sub(r'^-|-$', '', re.sub(r'[^a-z0-9]+', '-', s.lower()))
+def esc(s): return html.escape(str(s), quote=True)
+NB = ' '
+def fmt(n, d=0):
+    if n is None: return '—'
+    s = f'{n:,.{d}f}'.replace(',', ' ').replace('.', ',').replace(' ', NB)
+    return s
+def eur(n): return '—' if n is None else fmt(n) + NB + '€'
+def flag(b, cls='flag'):
+    inner = FLAGS.get(NATION.get(b, ''), '')
+    if not inner: return ''
+    n = esc(NATION.get(b, ''))
+    return f'<svg class="{cls}" viewBox="0 0 30 20" role="img" aria-label="{n}"><title>{n}</title>{inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>'
+def eligible(c): return c['e'] == 'ev' and (c['b'] + '|' + c['m']) in SCORE_ENV and c.get('p') and c['p'] <= 47000 and c.get('w') and c['w'] < 2400
+def tags(c): return [ {'Roadster': 'Cabriolet', 'Limousine': 'Berline'}.get(t, t) for t in c['c'].split(', ')]
+def sil(c):
+    t = tags(c); k = next((x for x in t if x in SILS), 'Berline'); return SILS[k]
+
+# --- regroupement par modèle -------------------------------------------------
+MODELS = {}
+for c in CARS:
+    MODELS.setdefault((c['b'], c['m']), []).append(c)
+for k in MODELS: MODELS[k].sort(key=lambda c: (c.get('p') or 10**9, c.get('hp') or 0))
+def mslug(b, m): return slug(b + ' ' + m)
+def avis_for(b, m):
+    out = []
+    base, ev = AVIS.get(f'{b}|{m}'), AVIS.get(f'{b}|{m}|ev')
+    if ev and base: out = [('Versions thermiques et hybrides', base), ('Version électrique', ev)]
+    elif base: out = [('', base)]
+    elif ev: out = [('', ev)]
+    return out
+def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else None
+
+# --- gabarits communs ----------------------------------------------------------
+FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B5D44'/%3E"
+           "%3Cpath d='M6 20 L9 14 Q10 12 13 12 H19 Q22 12 23.5 14 L26 18 V22 H6Z' fill='%23F2C230'/%3E%3Ccircle cx='11' cy='22' r='3' fill='%23fff'/%3E%3Ccircle cx='21' cy='22' r='3' fill='%23fff'/%3E%3C/svg%3E")
+def nav(p, cur):
+    items = [('index.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('methode.html', 'Méthode')]
+    links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
+    return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html">Mon Auto <b>Idéale</b></a><div class="topnav-links">{links}</div></nav>'
+def head(title, desc, path, p, extra=''):
+    canon = f'<link rel="canonical" href="{SITE_URL}{path}">\n<meta property="og:url" content="{SITE_URL}{path}">' if SITE_URL else ''
+    return f'''<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{esc(title)}</title>
+<meta name="description" content="{esc(desc)}">
+<meta property="og:title" content="{esc(title)}">
+<meta property="og:description" content="{esc(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+{canon}
+<meta name="theme-color" content="#0B3D2E">
+<link rel="icon" href="{FAVICON}">
+<link rel="preload" href="{p}assets/fonts/barlow-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{p}assets/site.css">
+{extra}
+</head>
+<body>
+'''
+def foot(p):
+    return f'''<footer class="site-foot"><div class="wrap">
+  <p><b>Mon Auto Idéale</b> — comparateur indépendant de voitures neuves vendues en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
+  <p><a href="{p}index.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
+  <p class="small">Prix « à partir de » indicatifs, tarifs constructeurs. Vérifiez les conditions auprès du constructeur ou d'un concessionnaire avant tout achat.</p>
+</div></footer>
+</body>
+</html>
+'''
+def hero_small(p, cur, kicker, h1, sub, right=''):
+    return f'''<header class="hero hero-sm">
+  {nav(p, cur)}
+  <div class="hero-in"><div><div class="kicker">{kicker}</div><h1>{h1}</h1>{f'<p>{sub}</p>' if sub else ''}</div>{right}</div>
+  <div class="road"></div>
+</header>
+'''
+def write(rel, txt):
+    path = os.path.join(OUT, rel); os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, 'w', encoding='utf-8').write(txt)
+
+# --- page d'accueil (comparateur) ----------------------------------------------
+def build_index():
+    body = open(os.path.join(ROOT, 'src/index.body.html'), encoding='utf-8').read()
+    js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
+    meta_js = {k: META[k] for k in ('NATION', 'ADJ', 'SITE', 'SCORE_ENV')}
+    body = body.replace('__NAV__', nav('', 'index.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js))
+    n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
+    desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
+    write('index.html', head('Mon Auto Idéale — le comparateur de voitures neuves', desc, '', '') + body + '\n' + foot(''))
+
+# --- fiches modèles ---------------------------------------------------------------
+def tile(v, l): return f'<div class="tile"><b class="num">{v}</b><span>{l}</span></div>'
+def rng(vals, unit, d=0):
+    vals = [v for v in vals if v is not None]
+    if not vals: return '—'
+    a, b = min(vals), max(vals)
+    return f'{fmt(a, d)}{NB}{unit}' if a == b else f'{fmt(a, d)} à {fmt(b, d)}{NB}{unit}'
+def avis_html(b, m):
+    blocks = avis_for(b, m)
+    if not blocks: return ''
+    out = ''
+    for title, a in blocks:
+        out += f'''<div class="avis-bloc">{f'<h3>{esc(title)}</h3>' if title else ''}
+  <blockquote class="lead">{esc(a['v'])}</blockquote>
+  <div class="avis-cols">
+    <div><h5 class="pl">Points forts</h5><ul class="c-ul pl">{''.join(f'<li>{esc(x)}</li>' for x in a['p'])}</ul></div>
+    <div><h5 class="mn">Points faibles</h5><ul class="c-ul mn">{''.join(f'<li>{esc(x)}</li>' for x in a['m'])}</ul></div>
+  </div>
+  <p class="avis-q"><b>Pour qui ?</b> {esc(a['q'])}</p>
+  {f'<p class="avis-s"><b>Bon à savoir</b> {esc(a["s"])}</p>' if a.get('s') else ''}
+</div>'''
+    return f'<section class="card"><h2>Notre avis</h2>{out}<p class="small">Synthèse d\'au moins deux essais de la presse automobile, sans influence sur les notes du comparateur.</p></section>'
+def conso(c):
+    if c['e'] == 'ev': return f"{c['aut']}{NB}km · {fmt(c['kwh'],1)}{NB}kWh" if c.get('aut') and c.get('kwh') else (f"{c['aut']}{NB}km" if c.get('aut') else '—')
+    s = f"{fmt(c['l'],1)}{NB}L" if c.get('l') is not None else '—'
+    if c['e'] == 'phev' and c.get('aut'): s += f" · {c['aut']}{NB}km élec."
+    return s
+def similar(b, m, l):
+    c0 = l[0]; t0 = tags(c0)[0]; p0 = pmin(l) or 0
+    cands = []
+    for (bb, mm), ll in MODELS.items():
+        if (bb, mm) == (b, m): continue
+        if t0 not in tags(ll[0]): continue
+        p = pmin(ll)
+        if p is None or not p0: continue
+        cands.append((abs(p - p0) / p0, bb, mm, ll))
+    cands.sort(key=lambda x: x[0])
+    return cands[:6]
+def mini_card(bb, mm, ll, p):
+    c = ll[0]; en = sorted({ENERGY[x['e']] for x in ll})
+    return f'''<a class="mcard" href="{p}modeles/{mslug(bb, mm)}.html"><span class="msil">{sil(c)}</span><span class="mname">{flag(bb)} {esc(bb)} {esc(mm)}</span><span class="mmeta">{esc(tags(c)[0])} · {esc(' / '.join(en))}</span><span class="mprice">{'dès ' + eur(pmin(ll)) if pmin(ll) else 'prix n.c.'}</span></a>'''
+
+def build_model(b, m, l):
+    c0 = l[0]; p = '../'; name = f'{b} {m}'
+    en = sorted({ENERGY[c['e']] for c in l}, key=lambda x: list(ENERGY.values()).index(x))
+    ev = [c for c in l if c['e'] == 'ev']; therm = [c for c in l if c['e'] != 'ev']
+    tiles = []
+    if ev: tiles.append(tile(rng([c.get('aut') for c in ev], 'km'), 'Autonomie WLTP'))
+    if therm: tiles.append(tile(rng([c.get('l') for c in therm if c['e'] != 'phev'] or [c.get('l') for c in therm], 'L', 1), 'Conso. /100 km'))
+    tiles.append(tile(rng([c.get('hp') for c in l], 'ch'), 'Puissance'))
+    tiles.append(tile(rng([c.get('tk') for c in l], 'L'), 'Coffre'))
+    nc = next((c.get('nc') for c in l if c.get('nc')), None)
+    tiles.append(tile(f'{nc}{NB}★' if nc else 'n.c.', 'Euro NCAP'))
+    badges = []
+    if any(eligible(c) for c in l): badges.append('<span class="bdg aid">Éligible aux aides à l\'achat (versions électriques sous 47 000 €)</span>')
+    ends = {c['end'] for c in l if c.get('end')}
+    if ends: badges.append(f'<span class="bdg warn">Fin de commercialisation {min(ends)}</span>')
+    soon = {c['y'] for c in l if c.get('y') and c['y'] > TODAY.year}
+    if soon: badges.append(f'<span class="bdg warn">Arrivée prévue en {min(soon)}</span>')
+    site = SITE.get(b)
+    rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{esc(c.get('bxl') or '')}</td><td>{esc(TR.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td><td class="num">{c.get('co2','—')}</td><td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}</td></tr>''' for c in l)
+    def span(vals, unit='', d=0):
+        return rng(vals, unit, d)
+    dl = [('Carrosserie', esc(c0['c'])), ('Motorisations', esc(' · '.join(en))), ('Places', esc(' ou '.join(sorted({str(c.get('pl')) for c in l if c.get('pl')})))),
+          ('Portes', esc(' ou '.join(sorted({str(c.get('dr')) for c in l if c.get('dr')})))), ('Longueur', span([c.get('len') for c in l], 'm', 2)),
+          ('Poids à vide', span([c.get('w') for c in l], 'kg')), ('0 à 100 km/h', span([c.get('acc') for c in l], 's', 1)),
+          ("Crit'Air", esc(' ou '.join(sorted({str(c.get('ca')) for c in l if c.get('ca') is not None})) or '—')),
+          ('Commercialisé depuis', esc(str(min(c['y'] for c in l if c.get('y'))) if any(c.get('y') for c in l) else '—')),
+          ('Marque', f"{flag(b)} {esc(b)} · {esc(ADJ.get(NATION.get(b, ''), ''))}")]
+    if ev: dl.insert(5, ('Recharge rapide max.', span([c.get('kw') for c in ev], 'kW')))
+    sims = similar(b, m, l)
+    desc = (AVIS.get(f'{b}|{m}') or AVIS.get(f'{b}|{m}|ev') or {}).get('v') or f'{name} : prix, versions, autonomie, consommation et caractéristiques.'
+    pm = pmin(l)
+    title = f'{name} : prix, versions et avis' + (f' (dès {fmt(pm)} €)' if pm else '') + ' | Mon Auto Idéale'
+    ld = {'@context': 'https://schema.org', '@type': 'Car', 'name': name, 'brand': {'@type': 'Brand', 'name': b}, 'bodyType': c0['c'],
+          'vehicleEngine': [{'@type': 'EngineSpecification', 'name': c['v']} for c in l[:10]]}
+    ps = [c['p'] for c in l if c.get('p')]
+    if ps: ld['offers'] = {'@type': 'AggregateOffer', 'priceCurrency': 'EUR', 'lowPrice': min(ps), 'highPrice': max(ps), 'offerCount': len(ps)}
+    extra = f'<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>'
+    sub = f"{esc(tags(c0)[0])} · {esc(' / '.join(en))} · {len(l)} version{'s' if len(l) > 1 else ''}"
+    page = head(title, desc, f'modeles/{mslug(b, m)}.html', p, extra) + hero_small(p, '', f'{flag(b)} Fiche modèle · {esc(b)}', f'{esc(b)} <span>{esc(m)}</span>', sub, f'<div class="hero-sil">{sil(c0)}</div>') + f'''<div class="wrap page">
+  <nav class="crumbs" aria-label="Fil d'Ariane"><a href="{p}index.html">Comparateur</a> › <a href="{p}marques.html#{slug(b)}">{esc(b)}</a> › <span>{esc(m)}</span></nav>
+  <section class="card summary">
+    <div class="sum-top">
+      <div class="price num">{f'<small class="from">À partir de</small>{eur(pm)}' if pm else 'Prix non communiqué'}</div>
+      <div class="acts2">{f'<a class="site-btn" href="{esc(site)}" target="_blank" rel="noopener">Voir sur le site {esc("DS" if b == "DS Automobiles" else b)}</a>' if site else ''}<a class="fiche-link" href="{p}index.html">Comparer avec mes critères</a></div>
+    </div>
+    {f'<div class="bdgs">{"".join(badges)}</div>' if badges else ''}
+    <div class="tiles">{''.join(tiles)}</div>
+  </section>
+  {avis_html(b, m)}
+  <section class="card"><h2>Les {len(l)} version{'s' if len(l) > 1 else ''}</h2>
+    <div class="vt-wrap"><table class="vtable"><thead><tr><th scope="col">Version</th><th scope="col">Énergie</th><th scope="col">Puissance</th><th scope="col">Boîte</th><th scope="col">Transmission</th><th scope="col">Conso. / autonomie</th><th scope="col">CO₂ (g/km)</th><th scope="col">Coffre (L)</th><th scope="col">Prix dès</th></tr></thead><tbody>{rows}</tbody></table></div>
+    <p class="small">Consommation et autonomie : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Prix « à partir de » de la finition d'entrée pour chaque motorisation.</p>
+  </section>
+  <section class="card"><h2>Caractéristiques</h2><dl class="specs">{''.join(f'<dt>{k}</dt><dd>{v}</dd>' for k, v in dl)}</dl></section>
+  {f'<section><h2 class="sec-title">À comparer aussi</h2><div class="mgrid">{"".join(mini_card(bb, mm, ll, p) for _, bb, mm, ll in sims)}</div></section>' if sims else ''}
+</div>
+''' + foot(p)
+    write(f'modeles/{mslug(b, m)}.html', page)
+
+# --- marques -------------------------------------------------------------------------
+def build_brands():
+    p = ''; brands = sorted({b for b, _ in MODELS}, key=lambda s: slug(s))
+    jump = ''.join(f'<a href="#{slug(b)}">{flag(b)} {esc(b)}</a>' for b in brands)
+    secs = ''
+    for b in brands:
+        ms = sorted([(mm, ll) for (bb, mm), ll in MODELS.items() if bb == b], key=lambda x: pmin(x[1]) or 10**9)
+        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2><div class="mgrid">{''.join(mini_card(b, mm, ll, p) for mm, ll in ms)}</div></section>'''
+    n = len(MODELS)
+    page = head('Toutes les marques et tous les modèles | Mon Auto Idéale', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
+        + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, classés par prix d\'entrée.') \
+        + f'<div class="wrap page"><nav class="jump" aria-label="Aller à une marque">{jump}</nav>{secs}</div>' + foot(p)
+    write('marques.html', page)
+
+# --- pages de texte ---------------------------------------------------------------
+def build_text(rel, title, h1, kicker, desc, content):
+    p = ''
+    write(rel, head(f'{title} | Mon Auto Idéale', desc, rel, p) + hero_small(p, rel, kicker, h1, '') + f'<div class="wrap page prose">{content}</div>' + foot(p))
+
+METHODE = open(os.path.join(ROOT, 'src/methode.html'), encoding='utf-8').read()
+LEGAL = open(os.path.join(ROOT, 'src/mentions-legales.html'), encoding='utf-8').read()
+
+def main():
+    if os.path.exists(OUT): shutil.rmtree(OUT)
+    os.makedirs(OUT)
+    shutil.copytree(os.path.join(ROOT, 'assets'), os.path.join(OUT, 'assets'))
+    build_index()
+    for (b, m), l in MODELS.items(): build_model(b, m, l)
+    build_brands()
+    n = len(MODELS)
+    build_text('methode.html', 'Méthode', 'Notre <span>méthode</span>', 'Comment ça marche', "Comment Mon Auto Idéale calcule la note sur 100, d'où viennent les données et comment sont rédigés les avis.",
+               METHODE.replace('__N_MODELS__', str(n)).replace('__N_VERSIONS__', fmt(len(CARS))))
+    build_text('mentions-legales.html', 'Mentions légales', 'Mentions <span>légales</span>', 'Informations', 'Mentions légales et données personnelles du site Mon Auto Idéale.', LEGAL)
+    p4 = SITE_URL or ''
+    write('404.html', head('Page introuvable | Mon Auto Idéale', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
+          + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour au comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
+    urls = ['', 'marques.html', 'methode.html', 'mentions-legales.html'] + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
+    if SITE_URL:
+        write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+              ''.join(f'  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY.isoformat()}</lastmod></url>\n' for u in urls) + '</urlset>\n')
+        write('robots.txt', f'User-agent: *\nAllow: /\nSitemap: {SITE_URL}sitemap.xml\n')
+    else:
+        write('robots.txt', 'User-agent: *\nAllow: /\n')
+    open(os.path.join(OUT, '.nojekyll'), 'w').close()
+    print(f'{len(urls)} pages générées dans {OUT} ({len(CARS)} versions, {n} modèles)')
+
+if __name__ == '__main__':
+    main()

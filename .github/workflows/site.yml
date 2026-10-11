@@ -1,0 +1,73 @@
+name: Mise à jour du site
+
+on:
+  schedule:
+    - cron: '30 2 * * *'   # chaque nuit vers 4 h 30, heure de Paris
+  workflow_dispatch:        # bouton « Run workflow » pour lancer une mise à jour à la main
+  push:
+    branches: [main]        # republie après une modification du code ou des avis
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  SHEET_ID: 1kJDxunkFlfbtgxNSAgDrdt_pXVY9p3O9oIUd37B1_EY
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Télécharger la feuille Google Sheets
+        if: github.event_name != 'push'
+        run: curl -sSfL "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0" -o /tmp/feuille.csv
+
+      - name: Convertir et contrôler les données
+        if: github.event_name != 'push'
+        run: |
+          python3 scripts/build_data.py /tmp/feuille.csv /tmp/data.json
+          python3 scripts/check_data.py data/data.json /tmp/data.json
+          cp /tmp/data.json data/data.json
+
+      - name: Enregistrer les nouvelles données
+        if: github.event_name != 'push'
+        run: |
+          if ! git diff --quiet data/data.json; then
+            git config user.name "Mise à jour automatique"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Données du $(date +%d/%m/%Y)" data/data.json
+            git push
+          fi
+
+      - name: Construire le site
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          export SITE_URL="${CUSTOM_DOMAIN_URL:-https://${OWNER}.github.io/${{ github.event.repository.name }}/}"
+          python3 scripts/build_site.py dist
+        env:
+          CUSTOM_DOMAIN_URL: ${{ vars.SITE_URL }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
