@@ -286,7 +286,7 @@ CRITS.sort((x,y)=>ORDER.indexOf(x.id)-ORDER.indexOf(y.id));
 const BLANK = ()=>({
   moto:{on:false,w:2,val:new Set()}, body:{on:false,w:2,val:new Set()}, seats:{on:false,w:2,val:'le5'}, power:{on:false,w:2,min:100,max:200},
   cost:{on:false,w:2,val:1500}, aut:{on:false,w:2,val:350}, chg:{on:false,w:1,val:100},
-  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,val:40000}
+  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,val:40000}
 });
 const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:true},o);
   set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
@@ -351,6 +351,11 @@ function critSection(c){ const s=S[c.id], body=CONTROL[c.id](s), hasHint=body.in
        <div class="weight">Importance ${seg(c.id,'w',W_LABELS,s.w)}</div>
      </div>
    </section>${c.id==='cost'?settingsBlock():''}`; }
+function aidSection(){ const A=S.aid; return `
+   <section class="crit ${A.on?'':'off'} ${OPEN_HINTS.has('aid')?'show-hint':''}" id="c-aid">
+     <div class="crit-h"><label class="t"><input type="checkbox" class="switch" id="sw-aid" data-sw="aid" ${A.on?'checked':''}> Éligible aux aides à l'achat <small>filtre</small></label>${infoBtn('aid',"Aides à l'achat")}</div>
+     <div class="crit-b"><p class="hint">Ne garde que les voitures électriques ouvrant droit à la prime « coup de pouce » (ex-bonus écologique) : score environnemental obtenu, prix sous 47 000 € et poids sous 2,4 t. Ce filtre ne modifie pas les notes.</p></div>
+   </section>`; }
 function brandSection(){ const B=S.brand; return `<div class="grp">Marques</div>
    <section class="crit ${B.on?'':'off'} ${OPEN_HINTS.has('brand')?'show-hint':''}" id="c-brand">
      <div class="crit-h"><label class="t"><input type="checkbox" class="switch" id="sw-brand" data-sw="brand" ${B.on?'checked':''}> Marques <small>filtre</small></label>${infoBtn('brand','Marques')}</div>
@@ -361,10 +366,10 @@ function brandSection(){ const B=S.brand; return `<div class="grp">Marques</div>
    </section>`; }
 function renderForm(){
   // ordre : Budget, puis Marques, puis les autres groupes
-  document.getElementById('crits').innerHTML = CRITS.map(c=> critSection(c) + (c.id==='price'?brandSection():'')).join('');
+  document.getElementById('crits').innerHTML = CRITS.map(c=> critSection(c) + (c.id==='price'?brandSection():'') + (c.id==='moto'?aidSection():'')).join('');
   updateCount();
 }
-function activeCount(){ return CRITS.filter(cr=> isActive(cr) && !((cr.id==='moto'||cr.id==='body') && S[cr.id].val.size===0)).length + (S.brand.on && S.brand.val.size?1:0); }
+function activeCount(){ return CRITS.filter(cr=> isActive(cr) && !((cr.id==='moto'||cr.id==='body') && S[cr.id].val.size===0)).length + (S.brand.on && S.brand.val.size?1:0) + (S.aid.on?1:0); }
 function updateCount(){ const n=activeCount(); const txt= n? `${n} critère${n>1?'s':''} actif${n>1?'s':''}` : 'Aucun critère actif';
   const el=document.getElementById('crit-count'); if(el) el.textContent=txt; const f=document.getElementById('fab-count'); if(f) f.textContent=n?'· '+n:''; }
 const form = document.getElementById('form');
@@ -511,6 +516,7 @@ function summaryText(){ const L=[];
       case 'ncap': v='Euro NCAP '+s.val+' étoiles minimum'; break;
     }
     L.push(v+(s.w===3?' (impératif)':'')); });
+  if(S.aid.on) L.push("éligible aux aides à l'achat");
   const B=S.brand; if(B.on && B.val.size) L.push((B.mode==='only'?'marques : ':'sans : ')+[...B.val].join(', '));
   const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.v} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
   const w=lastList[0]&&SITE[lastList[0].car.b]?`\n\nSite officiel ${lastList[0].car.b} : ${SITE[lastList[0].car.b]}`:'';
@@ -604,6 +610,7 @@ function update(){
     setBar(null); return;
   }
   if(opts.strict) res=res.filter(r=>!r.failed);
+  if(S.aid.on) res=res.filter(r=>eligibleAid(r.car));
   const B=S.brand; if(B.on && B.val.size) res=res.filter(r=> B.mode==='only' ? B.val.has(r.car.b) : !B.val.has(r.car.b));
   res.sort((a,b)=> b.score-a.score || tieBreak(a.car,b.car));
   VERS=new Map(); res.forEach(r=>{ const k=r.car.b+'|'+r.car.m; if(!VERS.has(k)) VERS.set(k,[]); VERS.get(k).push(r); });
