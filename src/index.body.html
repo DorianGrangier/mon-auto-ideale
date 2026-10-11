@@ -67,12 +67,18 @@
 <script type="application/json" id="data">__DATA__</script>
 <script type="application/json" id="avis-data">__AVIS__</script>
 <script type="application/json" id="meta-data">__META__</script>
+<script type="application/json" id="photos-data">__PHOTOS__</script>
 <script>
 (function(){
 const CARS = JSON.parse(document.getElementById('data').textContent);
 const META = JSON.parse(document.getElementById('meta-data').textContent);
 const slug = s=> s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const ficheUrl = c=> 'modeles/'+slug(c.b+' '+c.m)+'.html';
+/* Photos constructeurs (colonnes « Photo » de la feuille) ; à défaut, la silhouette */
+const PHOTOS = JSON.parse(document.getElementById('photos-data').textContent);
+const PHOTO_BASE = 'assets/photos/';
+const photoOf = c=> PHOTOS[c.b+'|'+c.m];
+const picFor = c=>{ const ph=photoOf(c); return ph ? `<img class="ph" src="${PHOTO_BASE}${ph.f}" alt="${c.b} ${c.m}" loading="lazy" decoding="async">` : silFor(c); };
 /* Avis éditoriaux par modèle (au-delà de la fiche technique, n'influencent pas la note) */
 const AVIS = JSON.parse(document.getElementById('avis-data').textContent);
 const avisOf = c=> (c.e==='ev' && AVIS[c.b+'|'+c.m+'|ev']) || AVIS[c.b+'|'+c.m];  // avis distinct pour une version électrique vendue sous le même nom (ex. GLC)
@@ -627,7 +633,7 @@ function update(){
   best.innerHTML=`<div class="reveal-row"><p class="reveal">Et votre voiture <em>idéale</em> est…</p><div class="rr-act">${COPY_BTN}${RESTART_BTN}</div></div><article class="best">
     <div class="gauge-pane gauge">${medal(1,48)}<div class="medal">N° 1 sur ${fmt(res.length)} ${opts.model?'modèles':'versions'}</div>${gauge(top.score)}<div class="verdict" style="color:${color(top.score)}">${verdict(top.score)}</div></div>
     <div class="best-body">
-      <div class="best-sil">${silFor(c)}</div>
+      ${photoOf(c)?`<figure class="best-photo"><img src="${PHOTO_BASE}${photoOf(c).f}" alt="${c.b} ${c.m}" decoding="async"><figcaption>${photoOf(c).c}</figcaption></figure>`:`<div class="best-sil">${silFor(c)}</div>`}
       <h3>${c.b} ${c.m}</h3>
       <p class="ver">${flag(NATION[c.b])} ${c.v}</p>
       <div class="price-row"><div class="price num">${c.p==null?'Prix n.c.':`<small class="from">À partir de</small>${eur(c.p)}`}</div></div>
@@ -649,7 +655,7 @@ function renderList(){
   document.getElementById('podium').innerHTML = pod.map(r=>{ const c=r.car, idx=lastList.indexOf(r);
     return `<article class="pcard">
       <span class="place">${medal(r.rank,34)}</span>
-      <div class="psil">${silFor(c)}</div>
+      <div class="psil${photoOf(c)?' has-ph':''}">${picFor(c)}</div>
       <div><h3>${brandFlag(c.b)} ${c.b} ${c.m}</h3><div class="pver">${verLine(c)}</div></div>
       ${badges(r)}
       <div class="pfoot"><span class="pr num" style="text-align:left">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
@@ -660,7 +666,7 @@ function renderList(){
   document.getElementById('list').innerHTML = items.map(r=>{ const c=r.car; const rank=r.rank, idx=lastList.indexOf(r);
     return `<div class="row"><div class="row-top"><button type="button" class="row-btn" aria-expanded="false" data-i="${idx}">
       <span class="rk num">${rank}</span>
-      <span class="rsil">${silFor(c)}</span>
+      <span class="rsil${photoOf(c)?' has-ph':''}">${picFor(c)}</span>
       <span class="rmain"><span class="nm">${brandFlag(c.b)} ${c.b} ${c.m}</span>
         <span class="rver">${verLine(c)}</span>
         ${(()=>{ const w=weakPoint(r); const x=[]; if(w) x.push(`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`); if(eligibleAid(c)) x.push('<span class="aidt">Aides</span>'); if(c.end) x.push(`<span class="warn-t">Fin de série ${c.end}</span>`); if(SOON(c)) x.push(`<span class="warn-t">Arrive en ${c.y}</span>`); return x.length?`<span class="rflags">${x.join('')}</span>`:''; })()}</span>

@@ -10,6 +10,21 @@ elif SRC.endswith('.csv'):
     with open(SRC,newline='',encoding='utf-8') as f: raw=list(csv.reader(f))
 else:
     raw=json.load(open(SRC))['values']
+# Colonnes facultatives après « Prix min. » : « Photo » (adresse de l'image) et « Crédit photo »
+HDR=[str(h or '').strip().lower() for h in raw[0]]
+def col(*names):
+    for i,h in enumerate(HDR):
+        if any(h.startswith(n) for n in names): return i
+    return None
+IPH, ICR = col('photo'), col('crédit photo','credit photo','crédit')
+PHOTOS_SRC={}
+for r in raw[1:]:
+    if len(r)>2 and r[1] and IPH is not None and len(r)>IPH and str(r[IPH] or '').strip().startswith('http'):
+        b=str(r[1]).strip(); b={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}.get(b,b)
+        k=b+'|'+str(r[2]).strip()
+        if k not in PHOTOS_SRC:
+            cr=str(r[ICR]).strip() if ICR is not None and len(r)>ICR and r[ICR] else ''
+            PHOTOS_SRC[k]={'url':str(r[IPH]).strip(),'credit':cr or '© '+b}
 raw=[tuple(list(r)+[None]*(35-len(r)))[:35] for r in raw]
 assert raw[0][1]=='Constructeur' and raw[0][34]=='Prix min.', 'Colonnes inattendues : '+str(raw[0])
 rows=[r for r in raw[1:] if r[1]]
@@ -56,4 +71,6 @@ for r in rows:
 # strip None keys to save space
 out=[{k:v for k,v in d.items() if v is not None} for d in out]
 json.dump(out,open(OUT,'w'),ensure_ascii=False,separators=(',',':'))
+import os
+json.dump(PHOTOS_SRC,open(os.path.join(os.path.dirname(os.path.abspath(OUT)),'photos_src.json'),'w'),ensure_ascii=False,indent=1)
 print(len(out), len(json.dumps(out,ensure_ascii=False,separators=(',',':')))//1024,'KB')

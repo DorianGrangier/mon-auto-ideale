@@ -508,3 +508,15 @@ a{color:var(--accent)}
 .avis-bloc .c-ul{font-size:14.5px;gap:4px}
 .mgrid{grid-template-columns:repeat(auto-fill,minmax(175px,1fr))}
 .card .specs dd{font-family:var(--f-body);font-size:14px}
+/* Photos constructeurs */
+img.ph{display:block;width:100%;height:100%;object-fit:cover}
+.best-photo{margin:-26px -30px 4px;position:relative;aspect-ratio:16/8;overflow:hidden;background:var(--surface)}
+.best-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.best-photo figcaption,.hero-photo figcaption{position:absolute;right:8px;bottom:6px;font-size:11px;color:#fff;background:rgba(0,0,0,.45);padding:1px 7px;border-radius:999px}
+@media (max-width:640px){.best-photo{margin:-20px -16px 4px}}
+.pcard .psil.has-ph{padding:0;overflow:hidden;aspect-ratio:16/9}
+.rsil.has-ph{overflow:hidden;padding:0}
+.msil.has-ph{padding:0;overflow:hidden;aspect-ratio:16/9}
+.hero-photo{margin:0;position:relative;width:min(420px,42vw);aspect-ratio:16/10;border-radius:var(--r);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.hero-photo img{width:100%;height:100%;object-fit:cover;display:block}
+@media (max-width:640px){.hero-photo{width:100%}}

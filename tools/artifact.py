@@ -14,6 +14,19 @@ for p in ('marques.html', 'methode.html', 'mentions-legales.html'):
 h = h.replace('href="index.html"', 'href="#"')
 h = h.replace("const ficheUrl = c=> 'modeles/'", f"const ficheUrl = c=> '{BASE}modeles/'")
 h = h.replace('<a class="fiche-link" href="${ficheUrl(c)}">', '<a class="fiche-link" href="${ficheUrl(c)}" target="_blank" rel="noopener">')
+# Photos : intégrées dans la page (data URI) si le dossier assets/photos est à côté, sinon chargées depuis le site
+import os, base64, json as _j
+pdir = os.path.join(src.rsplit('/', 1)[0], 'assets', 'photos')
+m = re.search(r'<script type="application/json" id="photos-data">(.*?)</script>', h, re.S)
+if m and os.path.isdir(pdir):
+    ph = _j.loads(m.group(1).replace('<\\/', '</'))
+    for k, v in ph.items():
+        fp = os.path.join(pdir, v['f'])
+        if os.path.exists(fp): v['f'] = 'data:image/webp;base64,' + base64.b64encode(open(fp, 'rb').read()).decode()
+    h = h[:m.start(1)] + _j.dumps(ph, ensure_ascii=False) + h[m.end(1):]
+    h = h.replace("const PHOTO_BASE = 'assets/photos/';", "const PHOTO_BASE = '';")
+else:
+    h = h.replace("const PHOTO_BASE = 'assets/photos/';", f"const PHOTO_BASE = '{BASE}assets/photos/';")
 assert 'assets/site.css' not in h
 open(out, 'w', encoding='utf-8').write(h)
 print('ok', len(h) // 1024, 'Ko')

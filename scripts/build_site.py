@@ -13,6 +13,7 @@ SITE_URL = os.environ.get('SITE_URL', '').rstrip('/') + '/' if os.environ.get('S
 
 def load(p): return json.load(open(os.path.join(ROOT, p), encoding='utf-8'))
 CARS = load('data/data.json'); AVIS = load('data/avis.json'); META = load('data/meta.json')
+PH = load('data/photos.json') if os.path.exists(os.path.join(ROOT, 'data/photos.json')) else {}
 NATION, ADJ, SITE, ENERGY, TR, SILS = META['NATION'], META['ADJ'], META['SITE'], META['ENERGY'], META['TR'], META['SILS']
 FLAGS = META['FLAG_SVG']; SCORE_ENV = set(META['SCORE_ENV'])
 TODAY = datetime.date.today()
@@ -34,6 +35,10 @@ def flag(b, cls='flag'):
     return f'<svg class="{cls}" viewBox="0 0 30 20" role="img" aria-label="{n}"><title>{n}</title>{inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>'
 def eligible(c): return c['e'] == 'ev' and (c['b'] + '|' + c['m']) in SCORE_ENV and c.get('p') and c['p'] <= 47000 and c.get('w') and c['w'] < 2400
 def tags(c): return [ {'Roadster': 'Cabriolet', 'Limousine': 'Berline'}.get(t, t) for t in c['c'].split(', ')]
+def photo(b, m): return PH.get(f'{b}|{m}')
+def pic(c, p, cls='ph'):
+    ph = photo(c['b'], c['m'])
+    return f'<img class="{cls}" src="{p}assets/photos/{ph["f"]}" alt="{esc(c["b"])} {esc(c["m"])}" loading="lazy" decoding="async" width="{ph.get("w", 960)}" height="{ph.get("h", 540)}">' if ph else sil(c)
 def sil(c):
     t = tags(c); k = next((x for x in t if x in SILS), 'Berline'); return SILS[k]
 
@@ -106,7 +111,7 @@ def build_index():
     body = open(os.path.join(ROOT, 'src/index.body.html'), encoding='utf-8').read()
     js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
     meta_js = {k: META[k] for k in ('NATION', 'ADJ', 'SITE', 'SCORE_ENV')}
-    body = body.replace('__NAV__', nav('', 'index.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js))
+    body = body.replace('__NAV__', nav('', 'index.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()}))
     n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
     desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
     write('index.html', head('Mon Auto Idéale — le comparateur de voitures neuves', desc, '', '') + body + '\n' + foot(''))
@@ -151,7 +156,7 @@ def similar(b, m, l):
     return cands[:6]
 def mini_card(bb, mm, ll, p):
     c = ll[0]; en = sorted({ENERGY[x['e']] for x in ll})
-    return f'''<a class="mcard" href="{p}modeles/{mslug(bb, mm)}.html"><span class="msil">{sil(c)}</span><span class="mname">{flag(bb)} {esc(bb)} {esc(mm)}</span><span class="mmeta">{esc(tags(c)[0])} · {esc(' / '.join(en))}</span><span class="mprice">{'dès ' + eur(pmin(ll)) if pmin(ll) else 'prix n.c.'}</span></a>'''
+    return f'''<a class="mcard" href="{p}modeles/{mslug(bb, mm)}.html"><span class="msil{' has-ph' if photo(bb, mm) else ''}">{pic(c, p)}</span><span class="mname">{flag(bb)} {esc(bb)} {esc(mm)}</span><span class="mmeta">{esc(tags(c)[0])} · {esc(' / '.join(en))}</span><span class="mprice">{'dès ' + eur(pmin(ll)) if pmin(ll) else 'prix n.c.'}</span></a>'''
 
 def build_model(b, m, l):
     c0 = l[0]; p = '../'; name = f'{b} {m}'
@@ -191,7 +196,7 @@ def build_model(b, m, l):
     if ps: ld['offers'] = {'@type': 'AggregateOffer', 'priceCurrency': 'EUR', 'lowPrice': min(ps), 'highPrice': max(ps), 'offerCount': len(ps)}
     extra = f'<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>'
     sub = f"{esc(tags(c0)[0])} · {esc(' / '.join(en))} · {len(l)} version{'s' if len(l) > 1 else ''}"
-    page = head(title, desc, f'modeles/{mslug(b, m)}.html', p, extra) + hero_small(p, '', f'{flag(b)} Fiche modèle · {esc(b)}', f'{esc(b)} <span>{esc(m)}</span>', sub, f'<div class="hero-sil">{sil(c0)}</div>') + f'''<div class="wrap page">
+    page = head(title, desc, f'modeles/{mslug(b, m)}.html', p, extra) + hero_small(p, '', f'{flag(b)} Fiche modèle · {esc(b)}', f'{esc(b)} <span>{esc(m)}</span>', sub, (f'<figure class="hero-photo">{pic(c0, p)}<figcaption>{esc(photo(b, m)["credit"])}</figcaption></figure>' if photo(b, m) else f'<div class="hero-sil">{sil(c0)}</div>')) + f'''<div class="wrap page">
   <nav class="crumbs" aria-label="Fil d'Ariane"><a href="{p}index.html">Comparateur</a> › <a href="{p}marques.html#{slug(b)}">{esc(b)}</a> › <span>{esc(m)}</span></nav>
   <section class="card summary">
     <div class="sum-top">
