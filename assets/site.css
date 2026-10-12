@@ -1,17 +1,17 @@
-@font-face{font-family:'Unbounded';font-style:normal;font-weight:200 900;font-display:swap;src:url(fonts/unbounded-latin-wght-normal.woff2) format('woff2')}
+@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/bricolage-grotesque-latin-opsz-normal.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/onest-latin-wght-normal.woff2) format('woff2')}
 
 /* Direction : « violet et jaune ». Un violet vif en grand aplat et son complémentaire, le jaune, pour les signaux (route, boutons, mots clés).
-   Titres en Unbounded, une grotesque large et ronde ; texte courant en Onest, net et lisible.
+   Titres en Bricolage Grotesque, une grotesque expressive à taille optique ; texte courant en Onest, net et lisible.
    Bandeau violet avec défilé de silhouettes sur une route, réglages à gauche, podium à droite. */
 :root{
   --bg:#F4F1FD; --surface:#FAF8FF; --raise:#FFFFFF; --ink:#170B3B; --muted:#5D5383; --line:#E1D9F6;
-  --chip:#ECE6FC; --accent:#6A22F0; --accent-strong:#5214CC; --accent-soft:#E9DFFF; --on-accent:#FFFFFF;
+  --chip:#ECE6FC; --accent:#621BE3; --accent-strong:#4C10BF; --accent-soft:#E9DFFF; --on-accent:#FFFFFF;
   --good:#0E9B4E; --mid:#B97800; --bad:#D9361E; --track:#E3DCF5;
   --s80:#0E9B4E; --s60:#FFC21A; --s40:#FF7417; --s0:#EB2F3A; --s60-ink:#241A00;
-  --hero:#7027FF; --hero-2:#5A16DB; --hero-ink:#FFFFFF; --hero-muted:#E0D2FF; --road:#FFD60A;
+  --hero:#6620F0; --hero-2:#5213CC; --hero-ink:#FFFFFF; --hero-muted:#E0D2FF; --road:#FFD60A;
   --shadow:0 1px 2px rgba(23,11,59,.06),0 8px 22px rgba(23,11,59,.08); --score-ink:#FFFFFF;
-  --f-display:"Unbounded","Arial Black",Arial,sans-serif; --wd:100%;
+  --f-display:"Bricolage Grotesque","Arial Black",Arial,sans-serif; --wd:100%;
   --f-body:"Onest","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --f-mono:"Onest","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --r:14px; --r-sm:9px;
@@ -20,20 +20,20 @@
   --bg:#0C0620; --surface:#140A30; --raise:#1B0F40; --ink:#F1ECFF; --muted:#A99ECF; --line:#2A1C56;
   --chip:#21144A; --accent:#A88BFF; --accent-strong:#CBB8FF; --accent-soft:#2D1A68; --on-accent:#0C0620;
   --good:#3FD584; --mid:#F2B735; --bad:#FF6F55; --track:#281B52; --s80:#3FD584; --s60:#FFD23F; --s40:#FF8A3D; --s0:#FF5A5F; --s60-ink:#241A00;
-  --hero:#5B1BD8; --hero-2:#4612AE; --hero-ink:#FFFFFF; --hero-muted:#D2C2FF; --road:#FFD60A;
+  --hero:#5317C9; --hero-2:#400FA2; --hero-ink:#FFFFFF; --hero-muted:#D2C2FF; --road:#FFD60A;
   --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 26px rgba(0,0,0,.3); --score-ink:#04120A; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0C0620; --surface:#140A30; --raise:#1B0F40; --ink:#F1ECFF; --muted:#A99ECF; --line:#2A1C56;
   --chip:#21144A; --accent:#A88BFF; --accent-strong:#CBB8FF; --accent-soft:#2D1A68; --on-accent:#0C0620;
   --good:#3FD584; --mid:#F2B735; --bad:#FF6F55; --track:#281B52; --s80:#3FD584; --s60:#FFD23F; --s40:#FF8A3D; --s0:#FF5A5F; --s60-ink:#241A00;
-  --hero:#5B1BD8; --hero-2:#4612AE; --hero-ink:#FFFFFF; --hero-muted:#D2C2FF; --road:#FFD60A;
+  --hero:#5317C9; --hero-2:#400FA2; --hero-ink:#FFFFFF; --hero-muted:#D2C2FF; --road:#FFD60A;
   --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 26px rgba(0,0,0,.3); --score-ink:#04120A; color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0}
 .wrap{max-width:1260px;margin:0 auto;padding-inline:20px;padding-block:0 64px}
-h1,h2,h3{font-family:var(--f-display);font-stretch:var(--wd);font-weight:700;letter-spacing:-.01em;text-wrap:balance;margin:0;line-height:1.05}
+h1,h2,h3{font-family:var(--f-display);font-stretch:var(--wd);font-weight:800;letter-spacing:-.02em;text-wrap:balance;margin:0;line-height:1.05}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
@@ -43,7 +43,7 @@ button,input,select{font:inherit;color:inherit}
 .hero-in{max-width:1260px;margin:0 auto;padding-inline:20px;padding-block:34px 0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px 40px;align-items:end}
 @media (max-width:900px){.hero-in{grid-template-columns:minmax(0,1fr);padding-block:26px 0}}
 .kicker{font-family:var(--f-display);font-stretch:var(--wd);text-transform:uppercase;letter-spacing:.07em;font-size:13px;font-weight:600;color:var(--road)}
-.hero h1{font-size:clamp(34px,5vw,60px);font-weight:800;text-transform:none;letter-spacing:-.015em;margin-top:6px}
+.hero h1{font-size:clamp(34px,5vw,60px);font-weight:800;text-transform:none;letter-spacing:-.03em;margin-top:6px}
 .hero h1 span{color:var(--road)}
 .hero p{margin:10px 0 0;color:var(--hero-muted);max-width:68ch;font-size:16px}
 .stats{display:flex;gap:10px;flex-wrap:wrap;justify-self:end}
@@ -397,9 +397,9 @@ ul.mn li::before{content:"−";color:var(--s40)}
 .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;clear:both}
 .tile{padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .tile + .tile{border-left:1px solid var(--line)}
-.tile b{font-family:var(--f-display);font-stretch:var(--wd);font-size:clamp(17px,1.6vw,21px);font-weight:700;line-height:1.05;white-space:nowrap}
+.tile b{font-family:var(--f-display);font-stretch:var(--wd);font-size:clamp(19px,1.8vw,24px);font-weight:700;line-height:1.05;white-space:nowrap}
 .tile span{font-size:12px;color:var(--muted);letter-spacing:.02em}
-@media (max-width:640px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.tile:nth-child(3){border-left:0}.tile:nth-child(n+3){border-top:1px solid var(--line)}.tile b{font-size:18px}}
+@media (max-width:640px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.tile:nth-child(3){border-left:0}.tile:nth-child(n+3){border-top:1px solid var(--line)}.tile b{font-size:21px}}
 blockquote.lead{margin:0;padding:2px 0 2px 16px;border-left:3px solid var(--accent);font-size:16px;line-height:1.55;color:var(--ink)}
 blockquote.lead .avis-k{display:block;margin-bottom:4px}
 .folds{display:grid;gap:0;border-top:1px solid var(--line)}
