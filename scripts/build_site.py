@@ -349,7 +349,7 @@ def build_model(b, m, l):
     nc = next((c.get('nc') for c in l if c.get('nc')), None)
     tiles.append(tile(f'{nc}{NB}★' if nc else 'n.c.', 'Euro NCAP'))
     badges = []
-    if any(eligible(c) for c in l): badges.append('<span class="bdg aid">Éligible aux aides à l\'achat (versions électriques sous 47 000 €)</span>')
+    if any(eligible(c) for c in l): badges.append('<span class="bdg aid">Éligible aux aides (versions électriques sous 47 000 €)</span>')
     ends = {c['end'] for c in l if c.get('end')}
     if ends: badges.append(f'<span class="bdg warn">Fin de commercialisation {min(ends)}</span>')
     soon = {c['y'] for c in l if c.get('y') and c['y'] > TODAY.year}

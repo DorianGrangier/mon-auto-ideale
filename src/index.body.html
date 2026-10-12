@@ -584,7 +584,7 @@ const specLine = c=>{ const v=(c.v||'').toLowerCase(); const en=ENERGY[c.e]||'';
 const verLine = c=>{ const s=specLine(c); return s?c.v+' · '+s:c.v; };
 function badges(r){ const c=r.car, w=weakPoint(r), b=[];
   if(w) b.push(`<span class="bdg ${w.ok?'ok':'wp'}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`);
-  if(eligibleAid(c)) b.push(`<span class="bdg aid">Aides à l'achat</span>`);
+  if(eligibleAid(c)) b.push(`<span class="bdg aid">Éligible aux aides</span>`);
   if(c.end) b.push(`<span class="bdg warn">Fin de série ${c.end}</span>`);
   if(SOON(c)) b.push(`<span class="bdg warn">Arrive en ${c.y}</span>`);
   return b.length?`<div class="bdgs">${b.join('')}</div>`:''; }
@@ -669,7 +669,7 @@ function renderList(){
       <span class="rsil${photoOf(c)?' has-ph':''}">${picFor(c)}</span>
       <span class="rmain"><span class="nm">${brandFlag(c.b)} ${c.b} ${c.m}</span>
         <span class="rver">${verLine(c)}</span>
-        ${(()=>{ const w=weakPoint(r); const x=[]; if(w) x.push(`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`); if(eligibleAid(c)) x.push('<span class="aidt">Aides</span>'); if(c.end) x.push(`<span class="warn-t">Fin de série ${c.end}</span>`); if(SOON(c)) x.push(`<span class="warn-t">Arrive en ${c.y}</span>`); return x.length?`<span class="rflags">${x.join('')}</span>`:''; })()}</span>
+        ${(()=>{ const w=weakPoint(r); const x=[]; if(w) x.push(`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`); if(eligibleAid(c)) x.push('<span class="aidt">Éligible aux aides</span>'); if(c.end) x.push(`<span class="warn-t">Fin de série ${c.end}</span>`); if(SOON(c)) x.push(`<span class="warn-t">Arrive en ${c.y}</span>`); return x.length?`<span class="rflags">${x.join('')}</span>`:''; })()}</span>
       <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
       <span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
     </button><span class="row-act">${cmpBtn(c)}</span></div><div class="detail" hidden></div></div>`; }).join('');
