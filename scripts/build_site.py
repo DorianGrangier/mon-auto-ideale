@@ -5,7 +5,7 @@ Entrées : data/data.json (versions), data/avis.json (avis par modèle), data/me
 sites constructeurs, liste des modèles éligibles aux aides, silhouettes), src/index.body.html, assets/.
 Variable d'environnement SITE_URL (ex. https://pseudo.github.io/mon-auto-ideale/) pour les liens absolus.
 """
-import json, os, re, shutil, sys, unicodedata, html, datetime
+import json, math, os, re, shutil, sys, unicodedata, html, datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'dist')
@@ -118,16 +118,122 @@ def build_index():
 
 
 # --- page d'accueil ------------------------------------------------------------------
+# Exemples de la page d'accueil : notes recalculées à chaque génération avec la même
+# formule que le comparateur (src/index.body.html), sur les données du jour.
+BASE = .8
+def _at_least(v, t, tol, bonus): return BASE + (1 - BASE) * min(1, (v - t) / (bonus * t)) if v >= t else BASE * max(0, 1 - (t - v) / (tol * t))
+def _at_most(v, t, tol, bonus): return BASE + (1 - BASE) * min(1, (t - v) / (bonus * t)) if v <= t else BASE * max(0, 1 - (v - t) / (tol * t))
+def _round(x): return int(math.floor(x + .5))
+MOTO_SIM = {'ess': {'ess': 1, 'essm': .9, 'gpl': .6, 'hev': .5, 'phev': .3, 'die': .2, 'diem': .2}, 'die': {'die': 1, 'diem': .9, 'ess': .2, 'essm': .2},
+            'mhev': {'essm': 1, 'diem': 1, 'hev': .6, 'ess': .5, 'die': .4, 'phev': .3}, 'hev': {'hev': 1, 'phev': .6, 'essm': .5, 'diem': .4, 'ev': .2},
+            'phev': {'phev': 1, 'hev': .5, 'ev': .4}, 'ev': {'ev': 1, 'h2': .5, 'phev': .4}, 'gpl': {'gpl': 1, 'ess': .3, 'essm': .2}, 'h2': {'h2': 1, 'ev': .5}}
+MOTO_LBL = {'ess': 'Essence', 'die': 'Diesel', 'mhev': 'Hybride léger', 'hev': 'Hybride', 'phev': 'Hybride rechargeable', 'ev': 'Électrique', 'gpl': 'GPL', 'h2': 'Hydrogène'}
+IMP = {1: 'Secondaire', 2: 'Important', 3: 'Impératif'}
+
+def _crit(c, k, o):
+    """Renvoie (nom, cible, valeur affichée, note 0-1, explication) ou None si la donnée manque."""
+    def vs(score, plus, pile, moins): return plus if score > .805 else (pile if score >= .795 else moins)
+    if k == 'price':
+        v, t = c.get('p'), o['val']
+        if v is None: return None
+        sc = _at_most(v, t, .15, .4)
+        why = f'{eur(t - v)} sous le budget, bonus' if sc > .805 else ('Tout juste dans le budget' if v <= t else f'{eur(v - t)} au-dessus du budget, la note chute')
+        return 'Budget', f'{eur(t)} maximum', eur(v), sc, why
+    if k == 'body':
+        tg = tags(c); sc = 1 if any(t in o['val'] for t in tg) else 0
+        return 'Carrosserie', ' ou '.join(o['val']), c['c'], sc, 'Conforme' if sc else 'Non conforme'
+    if k == 'moto':
+        sc = max(MOTO_SIM[u].get(c['e'], 0) for u in o['val'])
+        return 'Motorisation', ' ou '.join(MOTO_LBL[u] for u in o['val']), ENERGY.get(c['e'], c['e']), sc, 'Conforme' if sc == 1 else ('Proche, note partielle' if sc else 'Non conforme')
+    if k == 'aut':
+        v, t = c.get('aut'), o['val']
+        if v is None: return None
+        sc = _at_least(v, t, .5, .5); return 'Autonomie', f'{fmt(t)} km minimum', f'{fmt(v)} km', sc, vs(sc, 'Mieux que demandé', 'Pile la cible', 'Un peu juste')
+    if k == 'chg':
+        v, t = c.get('kw'), o['val']
+        if v is None: return None
+        sc = _at_least(v, t, .6, 1); return 'Recharge', f'{fmt(t)} kW minimum', f'{fmt(v)} kW', sc, vs(sc, 'Mieux que demandé', 'Pile la cible', 'Un peu juste')
+    if k == 'trunk':
+        v, t = c.get('tk'), o['val']
+        if v is None: return None
+        sc = _at_least(v, t, .35, .4); return 'Coffre', f'{fmt(t)} L minimum', f'{fmt(v)} L', sc, vs(sc, 'Plus grand que demandé', 'Pile la cible', 'Plus petit que demandé')
+    if k == 'seats':
+        big = c['pl'] > 5; sc = (1 if big else 0) if o['val'] == 'gt5' else (.6 if big else 1)
+        return 'Places', 'Plus de 5' if o['val'] == 'gt5' else '5 au plus', f"{c['pl']} places", sc, 'Conforme' if sc == 1 else 'Non conforme'
+    if k == 'ncap':
+        v, t = c.get('nc'), o['val']
+        if v is None: return None
+        sc = (1 if t >= 5 else BASE + (1 - BASE) * (v - t) / (5 - t)) if v >= t else BASE * max(0, 1 - (t - v) / 2)
+        return 'Euro NCAP', f'{t} étoiles minimum', f'{v} étoiles', sc, 'Conforme' if v >= t else 'En deçà'
+    if k == 'power':
+        h, lo, hi = c.get('hp'), o['min'], o.get('max')
+        if h is None: return None
+        sc = BASE * max(0, 1 - (lo - h) / (.4 * lo)) if h < lo else (BASE * max(0, 1 - (h - hi) / (.5 * hi)) if hi and h > hi else 1)
+        return 'Puissance', f'{lo} à {hi} ch' if hi else f'{lo} ch minimum', f'{h} ch', sc, 'Dans la fourchette' if sc == 1 else 'Hors fourchette'
+    if k == 'trans':
+        awd = c.get('tr') == 'AWD'; sc = (1 if awd else 0) if o['val'] == 'awd' else (.6 if awd else 1)
+        return 'Transmission', '4 roues motrices' if o['val'] == 'awd' else '2 roues motrices', TR.get(c.get('tr'), 'n.c.'), sc, 'Conforme' if sc == 1 else 'Non conforme'
+    if k == 'box':
+        sc = 1 if c.get('bx') == o['val'] else 0; lbl = {'A': 'Automatique', 'M': 'Manuelle'}
+        return 'Boîte', lbl[o['val']], lbl.get(c.get('bx'), 'n.c.'), sc, 'Conforme' if sc else 'Non conforme'
+
+EXAMPLES = [
+    ('Une citadine électrique pour Léa', 'Renault', '5 E-Tech', 'Autonomie confort 150 ch',
+     [('price', 3, {'val': 32000}), ('body', 3, {'val': ['Citadine']}), ('moto', 3, {'val': ['ev']}), ('aut', 2, {'val': 400}), ('trunk', 1, {'val': 300})]),
+    ('Un sept places pour la famille Martin', 'Skoda', 'Kodiaq', '1.5 TSI Hybrid DSG7 150 ch',
+     [('seats', 3, {'val': 'gt5'}), ('price', 2, {'val': 45000}), ('ncap', 2, {'val': 5}), ('trunk', 1, {'val': 600})]),
+    ('Partir loin en électrique avec Karim', 'Tesla', 'Model 3', 'Grande Autonomie RWD 320 ch',
+     [('moto', 3, {'val': ['ev']}), ('aut', 3, {'val': 550}), ('chg', 2, {'val': 150}), ('price', 2, {'val': 50000}), ('trunk', 1, {'val': 450})]),
+    ('Un SUV pour la montagne pour Hélène', 'Dacia', 'Bigster', '1.2 Mild Hybrid 4X4 130 ch',
+     [('body', 3, {'val': ['SUV']}), ('trans', 3, {'val': 'awd'}), ('price', 2, {'val': 40000}), ('power', 1, {'min': 130, 'max': 200}), ('trunk', 1, {'val': 450})]),
+    ('Un break hybride pour Thomas, gros rouleur', 'Dacia', 'Jogger', '1.6 Hybrid 140 ch',
+     [('body', 3, {'val': ['Break']}), ('moto', 2, {'val': ['hev']}), ('price', 2, {'val': 40000}), ('trunk', 2, {'val': 550}), ('box', 1, {'val': 'A'})]),
+    ('Le plaisir de conduire pour Marc', 'Ford', 'Mustang', '5.0 Ti-VCT V8 BVM6 446 ch',
+     [('body', 3, {'val': ['Sportive', 'Coupé']}), ('power', 3, {'min': 300, 'max': 450}), ('price', 2, {'val': 70000}), ('box', 1, {'val': 'M'})]),
+]
+def _col(sc): return 'var(--s80)' if sc >= 80 else 'var(--s60)' if sc >= 60 else 'var(--s40)' if sc >= 40 else 'var(--s0)'
+
+def examples_html():
+    figs = []
+    for title, b, m, v, crits in EXAMPLES:
+        best = None
+        for c in (x for x in CARS if x['b'] == b and x['m'] == m and x['v'] == v):  # versions homonymes : on garde la mieux notée
+            rows, num, den = [], 0, 0
+            for k, w, o in crits:
+                r = _crit(c, k, o)
+                if r is None: rows = None; break
+                name, cible, val, sc, why = r; num += sc * w; den += w; s100 = _round(100 * sc)
+                rows.append(f'<li><span class="ex-c"><b>{name}</b><small>{esc(cible)}</small></span><span class="ex-w">{IMP[w]} <em>×{w}</em></span>'
+                            f'<span class="ex-bar"><i style="width:{max(s100, 2)}%;background:{_col(s100)}"></i></span><span class="ex-s num">{s100}</span>'
+                            f'<span class="ex-why">{esc(val)} : {why[0].lower() + why[1:]}</span></li>')
+            if rows and (best is None or num / den > best[1]): best = (rows, num / den)
+        if best is None: print(f'  exemple ignoré (version introuvable ou donnée manquante) : {b} {m} {v}'); continue
+        rows = best[0]
+        total = _round(100 * best[1]); i = len(figs) + 1
+        figs.append(f'''<figure class="ex-card" aria-label="Exemple {i} : {esc(title)}">
+        <figcaption><span class="ex-k">Exemple {i}</span><b>{esc(title)}</b><small><a href="modeles/{mslug(b, m)}.html">{esc(b)} {esc(m)}</a>, {esc(v)}</small></figcaption>
+        <ol class="ex-list">{''.join(rows)}</ol>
+        <div class="ex-total"><span>Note finale<small>moyenne pondérée des {len(rows)} critères</small></span><b class="num" style="color:{_col(total)}">{total}<small>/100</small></b></div>
+      </figure>''')
+    if not figs: return ''
+    n = len(figs)
+    cur = ' aria-current="true"'
+    dots = ''.join(f'<button type="button" aria-label="Exemple {i + 1}"{cur if i == 0 else ""}></button>' for i in range(n))
+    return f'''<div class="ex-slider" data-slider>
+      <div class="ex-track" tabindex="0" aria-label="Exemples de notes">{''.join(figs)}</div>
+      <div class="ex-nav"><button type="button" class="ex-prev" aria-label="Exemple précédent">‹</button><div class="ex-dots">{dots}</div><span class="ex-count num">1 / {n}</span><button type="button" class="ex-next" aria-label="Exemple suivant">›</button></div>
+    </div>
+    <script>(()=>{{const s=document.querySelector('[data-slider]');if(!s)return;const t=s.querySelector('.ex-track'),f=[...t.children],d=[...s.querySelectorAll('.ex-dots button')],n=s.querySelector('.ex-count');
+      const cur=()=>Math.round(t.scrollLeft/t.clientWidth);const go=i=>{{i=(i+f.length)%f.length;t.scrollTo({{left:i*t.clientWidth,behavior:'smooth'}});}};
+      const upd=()=>{{const i=cur();d.forEach((b,j)=>b.toggleAttribute('aria-current',j===i));n.textContent=(i+1)+' / '+f.length;}};
+      t.addEventListener('scroll',()=>requestAnimationFrame(upd),{{passive:true}});
+      s.querySelector('.ex-prev').onclick=()=>go(cur()-1);s.querySelector('.ex-next').onclick=()=>go(cur()+1);d.forEach((b,j)=>b.onclick=()=>go(j));
+      t.addEventListener('keydown',e=>{{if(e.key==='ArrowRight'){{e.preventDefault();go(cur()+1);}}if(e.key==='ArrowLeft'){{e.preventDefault();go(cur()-1);}}}});}})();</script>'''
+
 def build_home():
     p = ''; n_models = len(MODELS); n_brands = len({b for b, _ in MODELS}); n_avis = len(AVIS)
     parade = ''.join(SILS[k] for k in ['Citadine', 'SUV urbain', 'Berline', 'Sportive', 'Break', 'Tout-terrain'])
-    ex = [('Budget', '32 000 € maximum', 'Impératif', '×3', 80, 'À 31 990 €, elle tient tout juste le budget : 80.'),
-          ('Carrosserie', 'Citadine', 'Impératif', '×3', 100, "C'est bien une citadine : 100."),
-          ('Motorisation', 'Électrique', 'Impératif', '×3', 100, 'Elle est électrique : 100.'),
-          ('Autonomie', '400 km minimum', 'Important', '×2', 83, '431 km, un peu mieux que demandé : 83.'),
-          ('Coffre', '300 L minimum', 'Secondaire', '×1', 84, '326 L, mieux que demandé : 84.')]
-    rows = ''.join(f'''<li><span class="ex-c"><b>{c}</b><small>{cible}</small></span><span class="ex-w">{imp} <em>{w}</em></span><span class="ex-bar"><i style="width:{s}%"></i></span><span class="ex-s num">{s}</span><span class="ex-why">{why}</span></li>''' for c, cible, imp, w, s, why in ex)
-    total = round((80 * 3 + 100 * 3 + 100 * 3 + 83 * 2 + 84 * 1) / (3 + 3 + 3 + 2 + 1))
+    slides = examples_html()
     desc = f"Mon Auto Idéale classe les voitures neuves vendues en France selon vos propres critères : une note sur 100 pour chacune des {fmt(len(CARS))} versions de {n_models} modèles, avec fiches et avis."
     body = f'''<header class="hero home-hero">
   {nav(p, 'index.html')}
@@ -161,18 +267,14 @@ def build_home():
       <ul class="rules">
         <li><b>Chaque critère est noté sur 100.</b> Atteindre tout juste votre cible vaut 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus ; être en deçà en fait perdre.</li>
         <li><b>Les notes sont pondérées</b> par l'importance que vous avez choisie (×1, ×2 ou ×3).</li>
-        <li><b>Le budget est un plafond.</b> En dessous, la voiture gagne des points ; au-dessus, sa note de prix chute vite et tombe à 0 dès 15 % de dépassement.</li>
+        <li><b>Le budget est un plafond.</b> En dessous, la voiture gagne des points ; au-dessus, sa note de prix chute vite et tombe à 0 dès 15&nbsp;% de dépassement.</li>
         <li><b>La moyenne pondérée donne la note finale.</b> À note égale, la voiture la moins chère passe devant.</li>
         <li><b>Un critère impératif raté</b> peut écarter la voiture du classement : c'est vous qui décidez.</li>
         <li><b>Les avis de la rédaction n'entrent jamais dans le calcul</b> : la note ne dépend que de vos critères et des données.</li>
       </ul>
       <p><a href="{p}methode.html">Tous les détails de la méthode</a></p>
     </div>
-    <figure class="ex-card" aria-labelledby="ex-cap">
-      <figcaption id="ex-cap"><span class="ex-k">Exemple simplifié</span><b>Une citadine électrique pour Léa</b><small>Renault 5 E-Tech, version 150 ch</small></figcaption>
-      <ol class="ex-list">{rows}</ol>
-      <div class="ex-total"><span>Note finale<small>moyenne pondérée des cinq critères</small></span><b class="num">{total}<small>/100</small></b></div>
-    </figure>
+    {slides}
   </section>
 
   <section class="facts" aria-label="En chiffres">
