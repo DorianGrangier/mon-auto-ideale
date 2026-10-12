@@ -240,7 +240,7 @@ def build_home():
   <div class="home-in">
     <div class="kicker">Comparateur indépendant de voitures neuves</div>
     <h1>Mon Auto <span>Idéale</span></h1>
-    <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur 100</b> qui dit à quel point elle vous correspond.</p>
+    <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur&nbsp;100</b> qui dit à quel point elle vous correspond.</p>
     <div class="home-ctas">
       <a class="cta cta-main" href="{p}comparateur.html">Lancer le comparateur</a>
       <a class="cta cta-alt" href="{p}marques.html">Parcourir les marques et modèles</a>

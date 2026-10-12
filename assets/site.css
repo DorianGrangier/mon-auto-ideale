@@ -529,19 +529,20 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .empty.start b{font-family:var(--f-display);font-size:24px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink)}
 .empty.start p{margin:8px 0 0;max-width:60ch;color:var(--muted);font-size:15px}
 .empty.start .acts{justify-content:flex-start}
-.home-hero .home-in{max-width:1260px;margin:0 auto;padding:46px 20px 10px;position:relative;z-index:1}
-.home-hero h1{font-size:clamp(48px,8vw,104px);line-height:.95;margin-top:10px}
-.home-lead{max-width:62ch;font-size:clamp(16px,1.6vw,19px)!important;line-height:1.55;color:var(--hero-muted);margin-top:18px!important}
+.home-hero .home-in{max-width:1260px;margin:0 auto;padding:28px 20px 4px;position:relative;z-index:1}
+.home-hero h1{font-size:clamp(44px,6vw,80px);line-height:.95;margin-top:8px}
+.home-hero .home-lead{max-width:80ch;font-size:clamp(16px,1.4vw,18px)!important;line-height:1.5;color:var(--hero-muted);margin-top:12px!important}
 .home-lead b{color:var(--hero-ink);font-weight:600}
-.home-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
-.cta{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:14px 26px;font-weight:700;font-size:16px;text-decoration:none;transition:transform .12s,background .12s}
+.home-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+.cta{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:12px 24px;font-weight:700;font-size:16px;text-decoration:none;transition:transform .12s,background .12s}
 .cta:hover{transform:translateY(-1px)}
 .cta-main{background:var(--road);color:#1B1A10}
 .cta-main:hover{background:#ffd84d}
 .cta-alt{border:1.5px solid rgba(255,255,255,.45);color:var(--hero-ink)}
 .cta-alt:hover{border-color:var(--hero-ink);background:rgba(255,255,255,.06)}
-.home-parade{max-width:1260px;margin:26px auto 0;padding:0 20px}
-@media (max-width:640px){.cta{width:100%}.home-hero .home-in{padding-top:30px}}
+.home-parade{max-width:1260px;margin:14px auto 0;padding:0 20px}
+.home-parade svg{width:clamp(60px,8vw,104px)}
+@media (max-width:640px){.cta{width:100%}.home-hero .home-in{padding-top:22px}}
 .home{gap:34px;padding-top:34px}
 .step-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:none}
 @media (max-width:860px){.step-list{grid-template-columns:minmax(0,1fr)}}
