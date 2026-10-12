@@ -6,7 +6,7 @@
     <div>
       <div class="kicker">Le comparateur</div>
       <h1>Trouvez votre <span>voiture idéale</span></h1>
-      <p>Activez les critères qui comptent pour vous et choisissez leur importance : chaque version reçoit une note sur 100. <a class="hero-link" href="methode.html">Comment est calculée la note ?</a></p>
+      <p>Activez les critères qui comptent pour vous et choisissez leur importance : chaque version reçoit une note sur 100. <a class="hero-link" href="methode.html">Comment est calculée la note&nbsp;?</a></p>
     </div>
     <div class="stats" id="stats"></div>
   </div>
@@ -457,7 +457,7 @@ function gauge(sc){
   let ticks='';
   for(let i=0;i<=100;i+=5){ const d=i/100*sweep, major=i%10===0; const [x1,y1]=pt(d,R-12), [x2,y2]=pt(d,R-(major?24:18));
     ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--muted)" stroke-width="${major?2:1}"/>`;
-    if(i%20===0 && i>0 && i<100){ const [tx,ty]=pt(d,R-38); ticks+=`<text x="${tx.toFixed(1)}" y="${(ty+4).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${i}</text>`; } }
+    if(i%20===0 && i>0 && i<100){ const [tx,ty]=pt(d,R-38); ticks+=`<text x="${tx.toFixed(1)}" y="${(ty+4).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--muted)" style="font-family:var(--f-body)">${i}</text>`; } }
   const d=Math.max(.5,sc)/100*sweep; const [nx,ny]=pt(d,R-44);
   return `<svg viewBox="0 0 240 222" role="img" aria-label="Note ${sc} sur 100">
     <path d="${arc(0,sweep,R)}" fill="none" stroke="var(--track)" stroke-width="10" stroke-linecap="round"/>
@@ -465,8 +465,8 @@ function gauge(sc){
     ${ticks}
     <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
     <circle cx="${cx}" cy="${cy}" r="7" fill="var(--ink)"/>
-    <text x="${cx}" y="${cy+74}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="46" fill="var(--ink)">${sc}</text>
-    <text x="${cx}" y="${cy+94}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--muted)">/ 100</text>
+    <text x="${cx}" y="${cy+74}" text-anchor="middle" style="font-family:var(--f-display);font-stretch:var(--wd)" font-weight="700" font-size="46" fill="var(--ink)">${sc}</text>
+    <text x="${cx}" y="${cy+94}" text-anchor="middle" style="font-family:var(--f-body)" font-size="12" fill="var(--muted)">/ 100</text>
   </svg>`;
 }
 
@@ -544,7 +544,7 @@ function medal(n,size=44){ const [l,m,d,lab]=MEDAL[n];
     <circle cx="20" cy="32" r="16" fill="${m}" stroke="${d}" stroke-width="1.5"/>
     <circle cx="20" cy="32" r="11.5" fill="${l}" stroke="${d}" stroke-width="1"/>
     <path d="M13 26 Q20 21 27 26" fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round"/>
-    <text x="20" y="37.5" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="16" fill="${d}">${n}</text></svg>`; }
+    <text x="20" y="37.5" text-anchor="middle" style="font-family:var(--f-display);font-stretch:var(--wd)" font-weight="700" font-size="16" fill="${d}">${n}</text></svg>`; }
 /* Sites officiels des constructeurs (France) */
 const SITE = META.SITE;
 const EXT_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>';
