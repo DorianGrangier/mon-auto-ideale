@@ -52,7 +52,7 @@
         <p>Source : fichier Auto.xlsx (30 marques parmi les plus vendues en France). Prix « à partir de » : tarif de la finition d'entrée de gamme pour chaque motorisation, consommation et autonomie électrique : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Coût de l'énergie : estimation à partir de la consommation WLTP, hors pertes de recharge et conduite réelle.</p>
         <p>« Notre avis » : synthèse d'essais et d'informations publiés dans la presse spécialisée et par les constructeurs (agrément, finition, fiabilité, garantie, restylages et remplaçants annoncés), à jour en octobre 2026. Ces avis n'entrent pas dans le calcul de la note.</p>
         <p>« Éligible aux aides à l'achat » : voiture électrique neuve ayant atteint le score environnemental, à moins de 47&nbsp;000&nbsp;€ et 2,4&nbsp;t (prime CEE, ex-bonus écologique). Liste établie à partir des listes publiées en 2026 : vérifiez la version exacte sur le site de l'ADEME avant achat.</p>
-        <p>Calcul de la note : chaque critère activé reçoit une note sur 100. Pour les critères chiffrés (prix, coffre, coût de l'énergie…), atteindre tout juste votre cible donne 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus, être en deçà en fait perdre. Les notes sont pondérées par l'importance choisie (secondaire ×1, important ×2, impératif ×3) puis ramenées sur 100 ; le prix d'achat compte 1,5 fois plus que les autres critères (×1,5, ×3 ou ×4,5). À note égale, la voiture la moins chère passe devant, puis celle au coût d'énergie le plus bas, à la plus grande autonomie électrique, la plus puissante, et enfin une marque française devant une marque étrangère. Une donnée non communiquée vaut 0,5.</p>
+        <p>Calcul de la note : chaque critère activé reçoit une note sur 100. Pour les critères chiffrés (prix, coffre, coût de l'énergie…), atteindre tout juste votre cible donne 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus, être en deçà en fait perdre. Les notes sont pondérées par l'importance choisie (secondaire ×1, important ×2, impératif ×3) puis ramenées sur 100. Au-delà du budget, la note du prix chute vite : elle tombe à 0 à 15 % au-dessus. À note égale, la voiture la moins chère passe devant, puis celle au coût d'énergie le plus bas, à la plus grande autonomie électrique, la plus puissante, et enfin une marque française devant une marque étrangère. Une donnée non communiquée vaut 0,5.</p>
         </details>
       </footer>
     </main>
@@ -281,7 +281,7 @@ const CRITS = [
   score(c,s){ if(c.nc==null) return [UNKNOWN,'non testée'];
     const v=c.nc,t=s.val; return [v>=t?(t>=5?1:BASE+(1-BASE)*(v-t)/(5-t)):BASE*Math.max(0,1-(t-v)/2), '★'.repeat(v)+' '+v+'/5']; }},
  {id:'price', name:'Prix', short:'Prix',
-  score(c,s){ return c.p==null?[UNKNOWN,'n.c.']:[atMost(c.p,s.val,.25,.4), 'à partir de\u00a0'+eur(c.p)]; }},
+  score(c,s){ return c.p==null?[UNKNOWN,'n.c.']:[atMost(c.p,s.val,.15,.4), 'à partir de\u00a0'+eur(c.p)]; }},
 ];
 
 const ORDER=['price','body','seats','moto','power','cost','aut','chg','box','trans','trunk','ncap'];
@@ -320,7 +320,7 @@ const CONTROL = {
   trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
   trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
-  price: s=>range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Budget maximum, prix catalogue. Au-delà, la note baisse rapidement (0 à +25 %). Le prix compte 1,5 fois plus que les autres critères.</p>`,
+  price: s=>range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Budget maximum, prix catalogue. Au-delà, la note baisse rapidement : 0 dès 15 % au-dessus du budget.</p>`,
 };
 
 function settingsBlock(){ return `
@@ -433,9 +433,8 @@ function tieBreak(a,b){
       || ((b.hp||0)-(a.hp||0))
       || ((NATION[b.b]==='France')-(NATION[a.b]==='France'));
 }
-// le prix d'achat pèse 1,5 fois plus que les autres critères
-const PRICE_COEF = 1.5;
-const effW = (cr,s)=> s.w*(cr.id==='price'?PRICE_COEF:1);
+// tous les critères pèsent selon l'importance choisie (le prix est pénalisé fortement au-delà du budget, voir son score)
+const effW = (cr,s)=> s.w;
 function evaluate(c){
   let num=0, den=0, failed=false; const parts=[];
   CRITS.forEach(cr=>{ const s=S[cr.id]; if(!isActive(cr)) return;
@@ -601,7 +600,7 @@ function avisFull(c){ const a=avisOf(c); if(!a) return '';
 const whyScore = (r,open)=> `<details class="fold"${open?' open':''}><summary>Pourquoi ${r.score}/100 ?</summary><div class="fold-b">${breakdown(r)}<p class="weights-note">${weightNote()}</p></div></details>`;
 const specsFold = c=> `<details class="fold"><summary>Fiche technique complète</summary><div class="fold-b">${specs(c)}</div></details>`;
 const actions = (c,primary)=> `<div class="acts2"><a class="fiche-link" href="${ficheUrl(c)}">Fiche du modèle</a>${primary?siteBtn(c,true):''}${cmpBtn(c)}${versBtn(c)}${primary?'':siteBtn(c)}</div>`;
-const weightNote = ()=>{ const on=CRITS.filter(isActive); return on.length?'Pondération : '+on.map(c=>c.short+' ×'+fmt(effW(c,S[c.id]),effW(c,S[c.id])%1?1:0)).join(' · ')+(on.some(c=>c.id==='price')?' (le prix compte 1,5 fois plus que les autres critères)':''):''; };
+const weightNote = ()=>{ const on=CRITS.filter(isActive); return on.length?'Pondération : '+on.map(c=>c.short+' ×'+effW(c,S[c.id])).join(' · '):''; };
 
 let shown=20, lastList=[];
 function update(){

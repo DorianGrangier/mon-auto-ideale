@@ -121,13 +121,13 @@ def build_index():
 def build_home():
     p = ''; n_models = len(MODELS); n_brands = len({b for b, _ in MODELS}); n_avis = len(AVIS)
     parade = ''.join(SILS[k] for k in ['Citadine', 'SUV urbain', 'Berline', 'Sportive', 'Break', 'Tout-terrain'])
-    ex = [('Budget', '32 000 € maximum', 'Impératif', '×4,5', 80, 'À 31 990 €, elle tient tout juste le budget : 80.'),
+    ex = [('Budget', '32 000 € maximum', 'Impératif', '×3', 80, 'À 31 990 €, elle tient tout juste le budget : 80.'),
           ('Carrosserie', 'Citadine', 'Impératif', '×3', 100, "C'est bien une citadine : 100."),
           ('Motorisation', 'Électrique', 'Impératif', '×3', 100, 'Elle est électrique : 100.'),
           ('Autonomie', '400 km minimum', 'Important', '×2', 83, '431 km, un peu mieux que demandé : 83.'),
           ('Coffre', '300 L minimum', 'Secondaire', '×1', 84, '326 L, mieux que demandé : 84.')]
     rows = ''.join(f'''<li><span class="ex-c"><b>{c}</b><small>{cible}</small></span><span class="ex-w">{imp} <em>{w}</em></span><span class="ex-bar"><i style="width:{s}%"></i></span><span class="ex-s num">{s}</span><span class="ex-why">{why}</span></li>''' for c, cible, imp, w, s, why in ex)
-    total = round((80 * 4.5 + 100 * 3 + 100 * 3 + 83 * 2 + 84 * 1) / (4.5 + 3 + 3 + 2 + 1))
+    total = round((80 * 3 + 100 * 3 + 100 * 3 + 83 * 2 + 84 * 1) / (3 + 3 + 3 + 2 + 1))
     desc = f"Mon Auto Idéale classe les voitures neuves vendues en France selon vos propres critères : une note sur 100 pour chacune des {fmt(len(CARS))} versions de {n_models} modèles, avec fiches et avis."
     body = f'''<header class="hero home-hero">
   {nav(p, 'index.html')}
@@ -160,7 +160,8 @@ def build_home():
       <h3>Comment elle est calculée</h3>
       <ul class="rules">
         <li><b>Chaque critère est noté sur 100.</b> Atteindre tout juste votre cible vaut 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus ; être en deçà en fait perdre.</li>
-        <li><b>Les notes sont pondérées</b> par l'importance que vous avez choisie (×1, ×2 ou ×3). Le prix d'achat compte en plus 1,5 fois plus que les autres critères.</li>
+        <li><b>Les notes sont pondérées</b> par l'importance que vous avez choisie (×1, ×2 ou ×3).</li>
+        <li><b>Le budget est un plafond.</b> En dessous, la voiture gagne des points ; au-dessus, sa note de prix chute vite et tombe à 0 dès 15 % de dépassement.</li>
         <li><b>La moyenne pondérée donne la note finale.</b> À note égale, la voiture la moins chère passe devant.</li>
         <li><b>Un critère impératif raté</b> peut écarter la voiture du classement : c'est vous qui décidez.</li>
         <li><b>Les avis de la rédaction n'entrent jamais dans le calcul</b> : la note ne dépend que de vos critères et des données.</li>
