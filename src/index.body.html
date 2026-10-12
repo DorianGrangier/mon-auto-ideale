@@ -1,15 +1,14 @@
 
 
-<header class="hero">
+<header class="hero hero-sm">
   __NAV__
   <div class="hero-in">
     <div>
-      <div class="kicker">Comparateur de voitures neuves</div>
-      <h1>Mon Auto <span>Idéale</span></h1>
-      <p>Réglez vos critères, choisissez leur importance : chaque version vendue en France reçoit une note de correspondance sur 100.</p>
+      <div class="kicker">Le comparateur</div>
+      <h1>Trouvez votre <span>voiture idéale</span></h1>
+      <p>Activez les critères qui comptent pour vous et choisissez leur importance : chaque version reçoit une note sur 100. <a class="hero-link" href="methode.html">Comment est calculée la note ?</a></p>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="parade" id="parade" aria-hidden="true"></div>
   </div>
   <div class="road"></div>
 </header>
@@ -25,7 +24,7 @@
           <button type="button" class="close-crit" data-close-crit>Voir les résultats</button>
         </div>
       </div>
-      <p class="example" id="example-note">Exemple pré-rempli : citadine électrique de 150 à 200&nbsp;ch, au moins 400&nbsp;km d'autonomie et recharge rapide, à moins de 32&nbsp;000&nbsp;€. Modifiez librement les critères.</p>
+      <p class="example" id="example-note" hidden>Exemple pré-rempli : citadine électrique de 150 à 200&nbsp;ch, au moins 400&nbsp;km d'autonomie et recharge rapide, à moins de 32&nbsp;000&nbsp;€. Modifiez librement les critères.</p>
       <div id="crits"></div>
       <div class="close-bottom"><button type="button" class="close-crit big" data-close-crit>Voir les résultats</button></div>
     </form>
@@ -298,7 +297,7 @@ const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:t
   set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
   set('power',{w:2,min:150,max:200}); set('aut',{w:2,val:400}); set('chg',{w:2,val:100}); set('trunk',{w:2,val:270}); set('ncap',{w:1,val:4});
   return s; };
-let S = EXAMPLE();
+let S = /[?&]exemple\b/.test(location.search) ? EXAMPLE() : BLANK();
 
 /* ---------- Formulaire ---------- */
 const W_LABELS = [[1,'Secondaire'],[2,'Important'],[3,'Impératif']];
@@ -421,6 +420,7 @@ function restart(move=true){ undoState={S:structuredClone(S), ex:!document.getEl
 document.addEventListener('click',e=>{ if(e.target.closest('[data-restart]')) restart(); });
 function hideExample(){ document.getElementById('example-note').hidden=true; }
 document.getElementById('btn-reset').onclick=()=>restart(false);
+document.addEventListener('click',e=>{ if(e.target.closest('[data-example]')) document.getElementById('btn-example').click(); });
 document.getElementById('btn-example').onclick=()=>{ S=EXAMPLE(); E.km=15000; renderForm(); document.getElementById('example-note').hidden=false; update(); };
 
 /* ---------- Calcul ---------- */
@@ -610,8 +610,9 @@ function update(){
   let res=CARS.map(evaluate);
   const active=res.length && res[0].parts.length>0;
   const best=document.getElementById('best'), list=document.getElementById('list');
+  document.getElementById('resultats').classList.toggle('is-empty', !active);
   if(!active){
-    best.innerHTML=`<div class="empty">Activez au moins un critère pour obtenir une note sur 100.<div class="acts"><button type="button" class="open-c" data-open-crit>Choisir mes critères</button></div></div>`; document.getElementById('restart-end').hidden=true;
+    best.innerHTML=`<div class="empty start"><b>Par où commencer ?</b><p>Activez un premier critère dans le panneau : votre budget, par exemple. Les voitures se classent aussitôt, avec une note sur 100. Ajoutez ensuite la carrosserie, la motorisation ou l'autonomie, et réglez l'importance de chacun.</p><div class="acts"><button type="button" class="open-c" data-open-crit>Choisir mes critères</button><button type="button" class="restart" data-example>Voir un exemple</button></div></div>`; document.getElementById('restart-end').hidden=true;
     list.innerHTML=''; document.getElementById('more').hidden=true; document.getElementById('list-title').textContent=''; document.getElementById('podium-wrap').hidden=true;
     setBar(null); return;
   }
@@ -793,8 +794,8 @@ document.addEventListener('click',e=>{ if(e.target.closest('[data-open-crit]')) 
 
 /* Stats */
 const models=new Set(CARS.map(c=>c.b+'|'+c.m)), brands=new Set(CARS.map(c=>c.b));
-document.getElementById('stats').innerHTML=`<p class="pitch">Trouvez votre voiture idéale parmi <b class="num">${models.size}</b> modèles de <b class="num">${brands.size}</b> marques</p>`;
-document.getElementById('parade').innerHTML=['Citadine','SUV urbain','Berline','Sportive','Break','Tout-terrain'].map(silhouette).join('');
+document.getElementById('stats').innerHTML=`<p class="pitch pitch-sm"><b class="num">${fmt(CARS.length)}</b> versions · <b class="num">${models.size}</b> modèles · <b class="num">${brands.size}</b> marques</p>`;
+
 
 renderForm(); update();
 })();

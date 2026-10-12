@@ -61,7 +61,7 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B5D44'/%3E"
            "%3Cpath d='M6 20 L9 14 Q10 12 13 12 H19 Q22 12 23.5 14 L26 18 V22 H6Z' fill='%23F2C230'/%3E%3Ccircle cx='11' cy='22' r='3' fill='%23fff'/%3E%3Ccircle cx='21' cy='22' r='3' fill='%23fff'/%3E%3C/svg%3E")
 def nav(p, cur):
-    items = [('index.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('methode.html', 'Méthode')]
+    items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
     return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html">Mon Auto <b>Idéale</b></a><div class="topnav-links">{links}</div></nav>'
 def head(title, desc, path, p, extra=''):
@@ -89,7 +89,7 @@ def head(title, desc, path, p, extra=''):
 def foot(p):
     return f'''<footer class="site-foot"><div class="wrap">
   <p><b>Mon Auto Idéale</b> — comparateur indépendant de voitures neuves vendues en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
-  <p><a href="{p}index.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
+  <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
   <p class="small">Prix « à partir de » indicatifs, tarifs constructeurs. Vérifiez les conditions auprès du constructeur ou d'un concessionnaire avant tout achat.</p>
 </div></footer>
 </body>
@@ -111,10 +111,86 @@ def build_index():
     body = open(os.path.join(ROOT, 'src/index.body.html'), encoding='utf-8').read()
     js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
     meta_js = {k: META[k] for k in ('NATION', 'ADJ', 'SITE', 'SCORE_ENV')}
-    body = body.replace('__NAV__', nav('', 'index.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()}))
+    body = body.replace('__NAV__', nav('', 'comparateur.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()}))
     n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
     desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
-    write('index.html', head('Mon Auto Idéale — le comparateur de voitures neuves', desc, '', '') + body + '\n' + foot(''))
+    write('comparateur.html', head('Le comparateur | Mon Auto Idéale', desc, 'comparateur.html', '') + body + '\n' + foot(''))
+
+
+# --- page d'accueil ------------------------------------------------------------------
+def build_home():
+    p = ''; n_models = len(MODELS); n_brands = len({b for b, _ in MODELS}); n_avis = len(AVIS)
+    parade = ''.join(SILS[k] for k in ['Citadine', 'SUV urbain', 'Berline', 'Sportive', 'Break', 'Tout-terrain'])
+    ex = [('Budget', '32 000 € maximum', 'Impératif', '×4,5', 80, 'À 31 990 €, elle tient tout juste le budget : 80.'),
+          ('Carrosserie', 'Citadine', 'Impératif', '×3', 100, "C'est bien une citadine : 100."),
+          ('Motorisation', 'Électrique', 'Impératif', '×3', 100, 'Elle est électrique : 100.'),
+          ('Autonomie', '400 km minimum', 'Important', '×2', 83, '431 km, un peu mieux que demandé : 83.'),
+          ('Coffre', '300 L minimum', 'Secondaire', '×1', 84, '326 L, mieux que demandé : 84.')]
+    rows = ''.join(f'''<li><span class="ex-c"><b>{c}</b><small>{cible}</small></span><span class="ex-w">{imp} <em>{w}</em></span><span class="ex-bar"><i style="width:{s}%"></i></span><span class="ex-s num">{s}</span><span class="ex-why">{why}</span></li>''' for c, cible, imp, w, s, why in ex)
+    total = round((80 * 4.5 + 100 * 3 + 100 * 3 + 83 * 2 + 84 * 1) / (4.5 + 3 + 3 + 2 + 1))
+    desc = f"Mon Auto Idéale classe les voitures neuves vendues en France selon vos propres critères : une note sur 100 pour chacune des {fmt(len(CARS))} versions de {n_models} modèles, avec fiches et avis."
+    body = f'''<header class="hero home-hero">
+  {nav(p, 'index.html')}
+  <div class="home-in">
+    <div class="kicker">Comparateur indépendant de voitures neuves</div>
+    <h1>Mon Auto <span>Idéale</span></h1>
+    <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur 100</b> qui dit à quel point elle vous correspond.</p>
+    <div class="home-ctas">
+      <a class="cta cta-main" href="{p}comparateur.html">Lancer le comparateur</a>
+      <a class="cta cta-alt" href="{p}marques.html">Parcourir les marques et modèles</a>
+    </div>
+  </div>
+  <div class="parade home-parade" aria-hidden="true">{parade}</div>
+  <div class="road"></div>
+</header>
+<div class="wrap page home">
+  <section class="steps" aria-labelledby="h-steps">
+    <h2 class="sec-title" id="h-steps">Comment ça marche</h2>
+    <ol class="step-list">
+      <li><span class="step-n">1</span><h3>Choisissez vos critères</h3><p>Budget, carrosserie, nombre de places, motorisation, puissance, coût de l'énergie, autonomie, coffre, sécurité… Activez seulement ceux qui comptent pour vous.</p></li>
+      <li><span class="step-n">2</span><h3>Dites ce qui est important</h3><p>Chaque critère peut être <b>secondaire</b>, <b>important</b> ou <b>impératif</b>. Un critère impératif pèse trois fois plus qu'un critère secondaire.</p></li>
+      <li><span class="step-n">3</span><h3>Découvrez votre classement</h3><p>Les voitures sont classées instantanément, de la mieux notée à la moins bien notée. Comparez-en jusqu'à trois côte à côte et ouvrez leur fiche détaillée.</p></li>
+    </ol>
+  </section>
+
+  <section class="card note-card" aria-labelledby="h-note">
+    <div class="note-txt">
+      <h2 id="h-note">Pourquoi une note sur 100 ?</h2>
+      <p>Comparer des fiches techniques, c'est comparer des chiffres qui ne disent pas tous la même chose. Une note unique répond à une seule question : <b>cette voiture vous correspond-elle ?</b> Elle ne dit pas qu'une voiture est « bonne » dans l'absolu : la même voiture peut obtenir 95 pour une personne et 40 pour une autre.</p>
+      <h3>Comment elle est calculée</h3>
+      <ul class="rules">
+        <li><b>Chaque critère est noté sur 100.</b> Atteindre tout juste votre cible vaut 80 ; faire nettement mieux rapporte jusqu'à 20 points de plus ; être en deçà en fait perdre.</li>
+        <li><b>Les notes sont pondérées</b> par l'importance que vous avez choisie (×1, ×2 ou ×3). Le prix d'achat compte en plus 1,5 fois plus que les autres critères.</li>
+        <li><b>La moyenne pondérée donne la note finale.</b> À note égale, la voiture la moins chère passe devant.</li>
+        <li><b>Un critère impératif raté</b> peut écarter la voiture du classement : c'est vous qui décidez.</li>
+        <li><b>Les avis de la rédaction n'entrent jamais dans le calcul</b> : la note ne dépend que de vos critères et des données.</li>
+      </ul>
+      <p><a href="{p}methode.html">Tous les détails de la méthode</a></p>
+    </div>
+    <figure class="ex-card" aria-labelledby="ex-cap">
+      <figcaption id="ex-cap"><span class="ex-k">Exemple simplifié</span><b>Une citadine électrique pour Léa</b><small>Renault 5 E-Tech, version 150 ch</small></figcaption>
+      <ol class="ex-list">{rows}</ol>
+      <div class="ex-total"><span>Note finale<small>moyenne pondérée des cinq critères</small></span><b class="num">{total}<small>/100</small></b></div>
+    </figure>
+  </section>
+
+  <section class="facts" aria-label="En chiffres">
+    <div class="fact"><b class="num">{fmt(len(CARS))}</b><span>versions notées</span></div>
+    <div class="fact"><b class="num">{n_models}</b><span>modèles, des citadines aux SUV</span></div>
+    <div class="fact"><b class="num">{n_brands}</b><span>marques parmi les plus vendues en France</span></div>
+    <div class="fact"><b class="num">{n_avis}</b><span>avis rédigés à partir d'au moins deux essais de la presse auto</span></div>
+  </section>
+
+  <section class="choices" aria-labelledby="h-go">
+    <h2 class="sec-title" id="h-go">Par où commencer ?</h2>
+    <div class="choice-grid">
+      <a class="choice" href="{p}comparateur.html"><span class="choice-k">Je cherche une voiture</span><b>Le comparateur</b><span>Partez d'une page blanche, activez vos critères et obtenez votre classement personnalisé.</span><span class="choice-go">Lancer le comparateur →</span></a>
+      <a class="choice" href="{p}marques.html"><span class="choice-k">Je veux explorer</span><b>Les marques et modèles</b><span>Les {n_models} modèles de {n_brands} marques, avec leurs versions, leurs prix, leurs caractéristiques et notre avis.</span><span class="choice-go">Parcourir le répertoire →</span></a>
+    </div>
+  </section>
+</div>
+'''
+    write('index.html', head('Mon Auto Idéale — trouvez la voiture neuve qui vous correspond', desc, '', p) + body + foot(p))
 
 # --- fiches modèles ---------------------------------------------------------------
 def tile(v, l): return f'<div class="tile"><b class="num">{v}</b><span>{l}</span></div>'
@@ -197,11 +273,11 @@ def build_model(b, m, l):
     extra = f'<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>'
     sub = f"{esc(tags(c0)[0])} · {esc(' / '.join(en))} · {len(l)} version{'s' if len(l) > 1 else ''}"
     page = head(title, desc, f'modeles/{mslug(b, m)}.html', p, extra) + hero_small(p, '', f'{flag(b)} Fiche modèle · {esc(b)}', f'{esc(b)} <span>{esc(m)}</span>', sub, (f'<figure class="hero-photo">{pic(c0, p)}<figcaption>{esc(photo(b, m)["credit"])}</figcaption></figure>' if photo(b, m) else f'<div class="hero-sil">{sil(c0)}</div>')) + f'''<div class="wrap page">
-  <nav class="crumbs" aria-label="Fil d'Ariane"><a href="{p}index.html">Comparateur</a> › <a href="{p}marques.html#{slug(b)}">{esc(b)}</a> › <span>{esc(m)}</span></nav>
+  <nav class="crumbs" aria-label="Fil d'Ariane"><a href="{p}marques.html">Marques et modèles</a> › <a href="{p}marques.html#{slug(b)}">{esc(b)}</a> › <span>{esc(m)}</span></nav>
   <section class="card summary">
     <div class="sum-top">
       <div class="price num">{f'<small class="from">À partir de</small>{eur(pm)}' if pm else 'Prix non communiqué'}</div>
-      <div class="acts2">{f'<a class="site-btn" href="{esc(site)}" target="_blank" rel="noopener">Voir sur le site {esc("DS" if b == "DS Automobiles" else b)}</a>' if site else ''}<a class="fiche-link" href="{p}index.html">Comparer avec mes critères</a></div>
+      <div class="acts2">{f'<a class="site-btn" href="{esc(site)}" target="_blank" rel="noopener">Voir sur le site {esc("DS" if b == "DS Automobiles" else b)}</a>' if site else ''}<a class="fiche-link" href="{p}comparateur.html">Comparer avec mes critères</a></div>
     </div>
     {f'<div class="bdgs">{"".join(badges)}</div>' if badges else ''}
     <div class="tiles">{''.join(tiles)}</div>
@@ -244,6 +320,7 @@ def main():
     os.makedirs(OUT)
     shutil.copytree(os.path.join(ROOT, 'assets'), os.path.join(OUT, 'assets'))
     build_index()
+    build_home()
     for (b, m), l in MODELS.items(): build_model(b, m, l)
     build_brands()
     n = len(MODELS)
@@ -252,8 +329,8 @@ def main():
     build_text('mentions-legales.html', 'Mentions légales', 'Mentions <span>légales</span>', 'Informations', 'Mentions légales et données personnelles du site Mon Auto Idéale.', LEGAL)
     p4 = SITE_URL or ''
     write('404.html', head('Page introuvable | Mon Auto Idéale', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
-          + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour au comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
-    urls = ['', 'marques.html', 'methode.html', 'mentions-legales.html'] + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
+          + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour à l\'accueil</a> · <a href="{p4}comparateur.html">Comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
+    urls = ['', 'comparateur.html', 'marques.html', 'methode.html', 'mentions-legales.html'] + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
     if SITE_URL:
         write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
               ''.join(f'  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY.isoformat()}</lastmod></url>\n' for u in urls) + '</urlset>\n')
