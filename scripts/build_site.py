@@ -80,7 +80,7 @@ def head(title, desc, path, p, extra=''):
 {canon}
 <meta name="theme-color" content="#0B3D2E">
 <link rel="icon" href="{FAVICON}">
-<link rel="preload" href="{p}assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{p}assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{p}assets/site.css">
 {extra}
 </head>

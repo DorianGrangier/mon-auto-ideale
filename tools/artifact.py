@@ -6,7 +6,7 @@ src, out = sys.argv[1], sys.argv[2]
 h = open(src, encoding='utf-8').read()
 css = open(src.rsplit('/', 1)[0] + '/assets/site.css', encoding='utf-8').read()
 css = re.sub(r"@font-face\{[^}]*\}\n?", '', css)
-fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">'
+fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap">'
 h = re.sub(r'<link rel="preload"[^>]*>\n?', '', h)
 h = h.replace('<link rel="stylesheet" href="assets/site.css">', fonts + '\n<style>\n' + css + '\n</style>')
 own = os.path.basename(src)
