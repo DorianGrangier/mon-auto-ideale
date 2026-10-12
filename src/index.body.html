@@ -91,6 +91,7 @@ function avisBlock(c, cls=''){ const a=avisOf(c); if(!a) return '';
       <div><h5 class="mn">Points faibles</h5><ul class="mn">${a.m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
     </div>
     <p class="avis-q"><b>Pour qui ?</b> ${esc(a.q)}</p>
+    ${a.x?`<p class="avis-x"><b>Selon la version</b> ${esc(a.x)}</p>`:''}
     ${a.s?`<p class="avis-s"><b>Bon à savoir</b> ${esc(a.s)}</p>`:''}
   </section>`; }
 const avisShort = c=>{ const a=avisOf(c); return a?`<p class="avis-mini"><b>Notre avis</b> ${esc(a.v)}</p>`:''; };
@@ -597,6 +598,7 @@ function avisFull(c){ const a=avisOf(c); if(!a) return '';
       <div><h5 class="mn">Points faibles</h5><ul class="mn">${a.m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
     </div>
     <p class="avis-q"><b>Pour qui ?</b> ${esc(a.q)}</p>
+    ${a.x?`<p class="avis-x"><b>Selon la version</b> ${esc(a.x)}</p>`:''}
     ${a.s?`<p class="avis-s"><b>Bon à savoir</b> ${esc(a.s)}</p>`:''}</div></details>`; }
 const whyScore = (r,open)=> `<details class="fold"${open?' open':''}><summary>Pourquoi ${r.score}/100 ?</summary><div class="fold-b">${breakdown(r)}<p class="weights-note">${weightNote()}</p></div></details>`;
 const specsFold = c=> `<details class="fold"><summary>Fiche technique complète</summary><div class="fold-b">${specs(c)}</div></details>`;

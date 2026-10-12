@@ -369,8 +369,9 @@ body.has-tray .wrap{padding-bottom:130px}
 ul.pl li::before,ul.mn li::before{position:absolute;left:0;top:0;font-weight:700}
 ul.pl li::before{content:"+";color:var(--good)}
 ul.mn li::before{content:"−";color:var(--s40)}
-.avis-q,.avis-s{margin:0;font-size:14px;line-height:1.45}
-.avis-q b,.avis-s b{font-weight:700;margin-right:4px}
+.avis-q,.avis-s,.avis-x{margin:0;font-size:14px;line-height:1.45}
+.avis-q b,.avis-s b,.avis-x b{font-weight:700;margin-right:4px}
+.avis-x{background:var(--raise);border-left:3px solid var(--accent);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:8px 12px}
 .avis-s{background:var(--raise);border-left:3px solid var(--road);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:8px 12px}
 .avis.band .avis-s{background:var(--raise)}
 .avis-mini{margin:0;font-size:13px;line-height:1.45;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}

@@ -314,6 +314,7 @@ def avis_html(b, m):
     <div><h5 class="mn">Points faibles</h5><ul class="c-ul mn">{''.join(f'<li>{esc(x)}</li>' for x in a['m'])}</ul></div>
   </div>
   <p class="avis-q"><b>Pour qui ?</b> {esc(a['q'])}</p>
+  {f'<p class="avis-x"><b>Selon la version</b> {esc(a["x"])}</p>' if a.get('x') else ''}
   {f'<p class="avis-s"><b>Bon à savoir</b> {esc(a["s"])}</p>' if a.get('s') else ''}
 </div>'''
     return f'<section class="card"><h2>Notre avis</h2>{out}<p class="small">Synthèse d\'au moins deux essais de la presse automobile, sans influence sur les notes du comparateur.</p></section>'
