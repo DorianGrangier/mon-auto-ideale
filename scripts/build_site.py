@@ -177,19 +177,19 @@ def _crit(c, k, o):
         sc = 1 if c.get('bx') == o['val'] else 0; lbl = {'A': 'Automatique', 'M': 'Manuelle'}
         return 'Boîte', lbl[o['val']], lbl.get(c.get('bx'), 'n.c.'), sc, 'Conforme' if sc else 'Non conforme'
 
-EXAMPLES = [
-    ('Une citadine électrique pour Léa', 'Renault', '5 E-Tech', 'Autonomie confort 150 ch',
-     [('price', 3, {'val': 32000}), ('body', 3, {'val': ['Citadine']}), ('moto', 3, {'val': ['ev']}), ('aut', 2, {'val': 400}), ('trunk', 1, {'val': 300})]),
-    ('Un sept places pour la famille Martin', 'Skoda', 'Kodiaq', '1.5 TSI Hybrid DSG7 150 ch',
-     [('seats', 3, {'val': 'gt5'}), ('price', 2, {'val': 45000}), ('ncap', 2, {'val': 5}), ('trunk', 1, {'val': 600})]),
+EXAMPLES = [  # six critères au moins par exemple ; chaque voiture arrivait en tête du comparateur avec ces critères (octobre 2026)
+    ('Une citadine électrique pour Léa', 'BYD', 'Dolphin Surf', 'Boost 43,2 kWh 88 ch',
+     [('price', 3, {'val': 32000}), ('body', 3, {'val': ['Citadine']}), ('moto', 3, {'val': ['ev']}), ('aut', 2, {'val': 400}), ('ncap', 2, {'val': 4}), ('trunk', 1, {'val': 300})]),
+    ('Un sept places pour la famille Martin', 'Renault', 'Espace', '1.2 Full Hybrid E-Tech 200 ch',
+     [('seats', 3, {'val': 'gt5'}), ('price', 2, {'val': 45000}), ('ncap', 2, {'val': 5}), ('box', 2, {'val': 'A'}), ('moto', 1, {'val': ['hev']}), ('trunk', 1, {'val': 600})]),
     ('Partir loin en électrique avec Karim', 'Tesla', 'Model 3', 'Grande Autonomie RWD 320 ch',
-     [('moto', 3, {'val': ['ev']}), ('aut', 3, {'val': 550}), ('chg', 2, {'val': 150}), ('price', 2, {'val': 50000}), ('trunk', 1, {'val': 450})]),
-    ('Un SUV pour la montagne pour Hélène', 'Dacia', 'Bigster', '1.2 Mild Hybrid 4X4 130 ch',
-     [('body', 3, {'val': ['SUV']}), ('trans', 3, {'val': 'awd'}), ('price', 2, {'val': 40000}), ('power', 1, {'min': 130, 'max': 200}), ('trunk', 1, {'val': 450})]),
-    ('Un break hybride pour Thomas, gros rouleur', 'Dacia', 'Jogger', '1.6 Hybrid 140 ch',
-     [('body', 3, {'val': ['Break']}), ('moto', 2, {'val': ['hev']}), ('price', 2, {'val': 40000}), ('trunk', 2, {'val': 550}), ('box', 1, {'val': 'A'})]),
+     [('moto', 3, {'val': ['ev']}), ('aut', 3, {'val': 550}), ('chg', 2, {'val': 150}), ('price', 2, {'val': 50000}), ('ncap', 2, {'val': 5}), ('trunk', 1, {'val': 450})]),
+    ('Un SUV pour la montagne pour Hélène', 'Ford', 'Kuga', '2.5 Duratec Hybrid I-AWD 183 ch',
+     [('body', 3, {'val': ['SUV']}), ('trans', 3, {'val': 'awd'}), ('price', 2, {'val': 40000}), ('power', 1, {'min': 130, 'max': 200}), ('box', 1, {'val': 'A'}), ('trunk', 1, {'val': 450})]),
+    ('Un break hybride pour Thomas, gros rouleur', 'Toyota', 'Corolla Touring', '1.8 Hybride 140 ch',
+     [('body', 3, {'val': ['Break']}), ('moto', 2, {'val': ['hev']}), ('price', 2, {'val': 40000}), ('trunk', 2, {'val': 550}), ('ncap', 2, {'val': 4}), ('box', 1, {'val': 'A'})]),
     ('Le plaisir de conduire pour Marc', 'Ford', 'Mustang', '5.0 Ti-VCT V8 BVM6 446 ch',
-     [('body', 3, {'val': ['Sportive', 'Coupé']}), ('power', 3, {'min': 300, 'max': 450}), ('price', 2, {'val': 70000}), ('box', 1, {'val': 'M'})]),
+     [('body', 3, {'val': ['Sportive', 'Coupé']}), ('power', 3, {'min': 300, 'max': 450}), ('price', 2, {'val': 70000}), ('moto', 2, {'val': ['ess']}), ('box', 1, {'val': 'M'}), ('trunk', 1, {'val': 300})]),
 ]
 def _col(sc): return 'var(--s80)' if sc >= 80 else 'var(--s60)' if sc >= 60 else 'var(--s40)' if sc >= 40 else 'var(--s0)'
 
