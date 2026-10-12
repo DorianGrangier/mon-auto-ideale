@@ -25,8 +25,22 @@ for r in raw[1:]:
         if k not in PHOTOS_SRC:
             cr=str(r[ICR]).strip() if ICR is not None and len(r)>ICR and r[ICR] else ''
             PHOTOS_SRC[k]={'url':str(r[IPH]).strip(),'credit':(cr if cr.startswith('©') else '© '+cr) if cr else '© '+b}
-raw=[tuple(list(r)+[None]*(35-len(r)))[:35] for r in raw]
-assert raw[0][1]=='Constructeur' and raw[0][34]=='Prix min.', 'Colonnes inattendues : '+str(raw[0])
+# Colonnes repérées par leur titre : l'ordre des colonnes dans la feuille peut changer sans casser le site.
+CANON=['Nation','Constructeur','Modèle','Génération','Phase','Nom motorisation','Carrosserie','Début','Fin','Portes','Places',
+ 'Motorisation','Architecture moteur','Cylindrée (L)','Puissance max. (ch)','Couple max. (Nm)','0-100 km/h min. (s)',
+ 'Conso. WLTP min. (L/100km)','Émi. CO2 WLTP min. (g/km)','Classe énergétique','Conso. WLTP min (kWh/100km)',
+ 'Auto. élec. WLTP mixte (km)','Capacité batterie (kWh)','Type de recharge','Pui. charge max. (kW)','Boîte','Trans.',
+ 'Poids à vide','Longueur (m)','Largeur (m)','Hauteur (m)','Volume coffre arrière min. (L)','Étoiles EuroNCAP',"Crit'Air",'Prix min.']
+def _k(h): return ' '.join(str(h or '').lower().replace('’',"'").split())
+_pos={_k(h):i for i,h in enumerate(raw[0])}
+IDX=[]
+for h in CANON:
+    i=_pos.get(_k(h))
+    if i is None:  # titre légèrement modifié : on cherche un début commun
+        i=next((j for k,j in _pos.items() if k.startswith(_k(h)[:12])),None)
+    assert i is not None, f'Colonne introuvable dans la feuille : « {h} »'
+    IDX.append(i)
+raw=[tuple((list(r)[i] if i<len(r) else None) for i in IDX) for r in raw]
 rows=[r for r in raw[1:] if r[1]]
 ALIAS={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}
 rows=[tuple([r[0],ALIAS.get(str(r[1]).strip(),str(r[1]).strip())]+list(r[2:])) for r in rows]
@@ -68,6 +82,9 @@ for r in rows:
      'kwh':num(r[20]),'aut':i_(r[21]),'bat':num(r[22]),'rt':None if r[23] in ('-',None) else r[23],
      'kw':num(r[24]),'bx':'A' if box=='BVA' else 'M','bxl':box,'tr':r[26],'w':i_(r[27]),
      'len':num(r[28]),'tk':i_(r[31]),'nc':i_(r[32]),'ca':i_(r[33]),'p':i_(r[34])})
+# garde-fou : des noms de version purement numériques signalent une colonne mal lue
+_num=sum(1 for d in out if str(d.get('v','')).replace('.','').isdigit())
+assert _num < len(out)*0.05, f'{_num} noms de version purement numériques : colonne « Nom motorisation » mal lue ?'
 # strip None keys to save space
 out=[{k:v for k,v in d.items() if v is not None} for d in out]
 json.dump(out,open(OUT,'w'),ensure_ascii=False,separators=(',',':'))
