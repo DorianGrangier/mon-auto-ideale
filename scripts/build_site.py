@@ -33,7 +33,7 @@ def flag(b, cls='flag'):
     if not inner: return ''
     n = esc(NATION.get(b, ''))
     return f'<svg class="{cls}" viewBox="0 0 30 20" role="img" aria-label="{n}"><title>{n}</title>{inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>'
-def eligible(c): return c['e'] == 'ev' and (c['b'] + '|' + c['m']) in SCORE_ENV and c.get('p') and c['p'] <= 47000 and c.get('w') and c['w'] < 2400
+def eligible(c): return c['e'] == 'ev' and ((c['b'] + '|' + c['m']) in SCORE_ENV or (c['b'] + '|' + c['m'] + '|' + c['v']) in SCORE_ENV) and c.get('p') and c['p'] <= 47000 and c.get('w') and c['w'] < 2400
 def tags(c): return [ {'Roadster': 'Cabriolet', 'Limousine': 'Berline'}.get(t, t) for t in c['c'].split(', ')]
 def photo(b, m): return PH.get(f'{b}|{m}')
 def pic(c, p, cls='ph'):
@@ -349,7 +349,8 @@ def build_model(b, m, l):
     nc = next((c.get('nc') for c in l if c.get('nc')), None)
     tiles.append(tile(f'{nc}{NB}★' if nc else 'n.c.', 'Euro NCAP'))
     badges = []
-    if any(eligible(c) for c in l): badges.append('<span class="bdg aid">Éligible aux aides (versions électriques sous 47 000 €)</span>')
+    el = [c for c in l if eligible(c)]
+    if el: badges.append('<span class="bdg aid">Éligible aux aides' + ('' if len(el) == len(l) else (' (' + ', '.join(esc(c['v']) for c in el) + ')' if len(el) <= 2 else ' (certaines versions)')) + '</span>')
     ends = {c['end'] for c in l if c.get('end')}
     if ends: badges.append(f'<span class="bdg warn">Fin de commercialisation {min(ends)}</span>')
     soon = {c['y'] for c in l if c.get('y') and c['y'] > TODAY.year}
