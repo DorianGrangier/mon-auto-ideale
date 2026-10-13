@@ -40,7 +40,11 @@ for h in CANON:
         i=next((j for k,j in _pos.items() if k.startswith(_k(h)[:12])),None)
     assert i is not None, f'Colonne introuvable dans la feuille : « {h} »'
     IDX.append(i)
-raw=[tuple((list(r)[i] if i<len(r) else None) for i in IDX) for r in raw]
+# Colonnes facultatives (critères à venir) : temps de recharge 10-80 % et coffre avant
+def _opt(prefix):
+    return next((j for k,j in _pos.items() if k.startswith(prefix)), None)
+IDX += [_opt('temps recharge'), _opt("présence d'un coffre")]
+raw=[tuple((list(r)[i] if i is not None and i<len(r) else None) for i in IDX) for r in raw]
 rows=[r for r in raw[1:] if r[1]]
 ALIAS={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}
 rows=[tuple([r[0],ALIAS.get(str(r[1]).strip(),str(r[1]).strip())]+list(r[2:])) for r in rows]
@@ -72,6 +76,9 @@ def s_(v):
     return s
 def i_(v):
     n=num(v); return None if n is None else (int(n) if float(n).is_integer() else n)
+def _yn(v):
+    v=str(v or '').strip().lower()
+    return 1 if v in ('oui','yes','o','x','1','vrai','true') else (0 if v in ('non','no','n','0','faux','false') else None)
 EN={'Essence':'ess','Essence + Hy. légère':'essm','Diesel':'die','Diesel + Hy. légère':'diem',
     'Hybride simple':'hev','PHEV':'phev','Électrique':'ev','Essence + GPL':'gpl','Hydrogène':'h2'}
 out=[]
@@ -91,7 +98,7 @@ for r in rows:
      'hp':i_(r[14]),'nm':i_(r[15]),'acc':num(r[16]),'l':num(r[17]),'co2':i_(r[18]),'cls':r[19],
      'kwh':num(r[20]),'aut':i_(r[21]),'bat':num(r[22]),'rt':None if r[23] in ('-',None) else r[23],
      'kw':num(r[24]),'bx':'A' if box=='BVA' else 'M','bxl':box,'tr':r[26],'w':i_(r[27]),
-     'len':num(r[28]),'tk':i_(r[31]),'nc':i_(r[32]),'ca':i_(r[33]),'p':i_(r[34])})
+     'len':num(r[28]),'tk':i_(r[31]),'nc':i_(r[32]),'ca':i_(r[33]),'p':i_(r[34]),'t80':num(r[35]),'fk':_yn(r[36])})
 # garde-fou : des noms de version purement numériques signalent une colonne mal lue
 _num=sum(1 for d in out if str(d.get('v','')).replace('.','').isdigit())
 assert _num < len(out)*0.05, f'{_num} noms de version purement numériques : colonne « Nom motorisation » mal lue ?'
