@@ -45,6 +45,16 @@ rows=[r for r in raw[1:] if r[1]]
 ALIAS={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}
 rows=[tuple([r[0],ALIAS.get(str(r[1]).strip(),str(r[1]).strip())]+list(r[2:])) for r in rows]
 rows=[r for r in rows if 'Quadricycle' not in str(r[6])]  # Citroën Ami, Fiat Topolino exclus
+# Même modèle écrit avec ou sans accent (« Serie 3 » / « Série 3 ») : on garde l'orthographe la plus fréquente,
+# sinon les deux fiches auraient la même adresse et l'une écraserait l'autre.
+import unicodedata, collections
+def _norm(s): return ''.join(ch for ch in unicodedata.normalize('NFD', str(s).strip().lower()) if unicodedata.category(ch) != 'Mn')
+_seen=collections.defaultdict(collections.Counter)
+for r in rows: _seen[(r[1], _norm(r[2]))][str(r[2]).strip()]+=1
+_canon={k: max(c, key=lambda n: (c[n], n != _norm(n))) for k, c in _seen.items()}
+for k, c in _seen.items():
+    if len(c) > 1: print('  orthographes unifiées :', k[0], dict(c), '→', _canon[k])
+rows=[tuple([r[0], r[1], _canon[(r[1], _norm(r[2]))]] + list(r[3:])) for r in rows]
 def num(v):
     if v is None: return None
     if isinstance(v,(int,float)): return v
