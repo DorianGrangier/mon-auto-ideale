@@ -13,6 +13,10 @@ SITE_URL = os.environ.get('SITE_URL', '').rstrip('/') + '/' if os.environ.get('S
 
 def load(p): return json.load(open(os.path.join(ROOT, p), encoding='utf-8'))
 CARS = load('data/data.json'); AVIS = load('data/avis.json'); META = load('data/meta.json')
+# Pages modèles sur les sites constructeurs : colonne « Lien constructeur » de la feuille en priorité, sinon data/liens.json
+LIENS = load('data/liens.json') if os.path.exists(os.path.join(ROOT, 'data/liens.json')) else {}
+for _c in CARS:
+    if _c.get('u'): LIENS[_c['b'] + '|' + _c['m']] = _c['u']
 PH = load('data/photos.json') if os.path.exists(os.path.join(ROOT, 'data/photos.json')) else {}
 NATION, ADJ, SITE, ENERGY, TR, SILS = META['NATION'], META['ADJ'], META['SITE'], META['ENERGY'], META['TR'], META['SILS']
 FLAGS = META['FLAG_SVG']; SCORE_ENV = set(META['SCORE_ENV'])
@@ -111,6 +115,7 @@ def build_index():
     body = open(os.path.join(ROOT, 'src/index.body.html'), encoding='utf-8').read()
     js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
     meta_js = {k: META[k] for k in ('NATION', 'ADJ', 'SITE', 'SCORE_ENV')}
+    meta_js['LIENS'] = LIENS
     body = body.replace('__NAV__', nav('', 'comparateur.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()}))
     n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
     desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
@@ -356,7 +361,7 @@ def build_model(b, m, l):
     if ends: badges.append(f'<span class="bdg warn">Fin de commercialisation {min(ends)}</span>')
     soon = {c['y'] for c in l if c.get('y') and c['y'] > TODAY.year}
     if soon: badges.append(f'<span class="bdg warn">Arrivée prévue en {min(soon)}</span>')
-    site = SITE.get(b)
+    site = LIENS.get(f'{b}|{m}') or SITE.get(b)
     rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{esc(c.get('bxl') or '')}</td><td>{esc(TR.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td><td class="num">{c.get('co2','—')}</td><td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}</td></tr>''' for c in l)
     def span(vals, unit='', d=0):
         return rng(vals, unit, d)
