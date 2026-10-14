@@ -80,7 +80,17 @@ def _yn(v):
     v=str(v or '').strip().lower()
     return 1 if v in ('oui','yes','o','x','1','vrai','true') else (0 if v in ('non','no','n','0','faux','false') else None)
 EN={'Essence':'ess','Essence + Hy. légère':'essm','Diesel':'die','Diesel + Hy. légère':'diem',
-    'Hybride simple':'hev','PHEV':'phev','Électrique':'ev','Essence + GPL':'gpl','Hydrogène':'h2'}
+    'Hybride simple':'hev','PHEV':'phev','Électrique':'ev','Essence + GPL':'gpl','Essence + GPL + Hy. légère':'gpl','Hydrogène':'h2'}
+def energie(v):
+    # libellé connu, sinon déduit des mots du libellé (un nouveau libellé dans la feuille ne bloque plus la mise à jour)
+    v=str(v or '').strip()
+    if v in EN: return EN[v]
+    t=v.lower(); leg='légère' in t or 'legere' in t
+    for cle,code in (('gpl','gpl'),('hydrog','h2'),('phev','phev'),('rechargeable','phev'),('électrique','ev'),('electrique','ev'),('hybride simple','hev'),('full hybrid','hev')):
+        if cle in t: print(f'  motorisation « {v} » lue comme {code}'); return code
+    if 'diesel' in t: print(f'  motorisation « {v} » lue comme diesel'); return 'diem' if leg else 'die'
+    if 'essence' in t: print(f'  motorisation « {v} » lue comme essence'); return 'essm' if leg else 'ess'
+    raise SystemExit(f'Motorisation inconnue dans la feuille : « {v} »')
 out=[]
 for r in rows:
     tags=[t.strip() for t in str(r[6]).split(',')]
@@ -94,7 +104,7 @@ for r in rows:
     box=str(r[25])
     out.append({
      'b':s_(r[1]),'m':s_(r[2]),'g':i_(r[3]),'v':s_(r[5]),'c':', '.join(tags),
-     'y':i_(r[7]),'end':i_(r[8]),'dr':i_(r[9]),'pl':i_(r[10]),'e':EN[r[11]],'eng':s_(r[12]),
+     'y':i_(r[7]),'end':i_(r[8]),'dr':i_(r[9]),'pl':i_(r[10]),'e':energie(r[11]),'eng':s_(r[12]),
      'hp':i_(r[14]),'nm':i_(r[15]),'acc':num(r[16]),'l':num(r[17]),'co2':i_(r[18]),'cls':r[19],
      'kwh':num(r[20]),'aut':i_(r[21]),'bat':num(r[22]),'rt':None if r[23] in ('-',None) else r[23],
      'kw':num(r[24]),'bx':'A' if box=='BVA' else 'M','bxl':box,'tr':r[26],'w':i_(r[27]),
