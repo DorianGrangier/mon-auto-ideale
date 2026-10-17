@@ -527,7 +527,7 @@ function summaryText(){ const L=[];
   const B=S.brand; if(B.on && B.val.size) L.push((B.mode==='only'?'marques : ':'sans : ')+[...B.val].join(', '));
   const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.v} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
   const w=lastList[0]&&siteUrl(lastList[0].car)?`\n\nSur le site officiel : ${siteUrl(lastList[0].car)}`:'';
-  return `Mon Auto Idéale\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}`; }
+  return `Mioto, le comparateur de voitures neuves selon vos critères\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}`; }
 function toast(msg,undo){ const t=document.getElementById('toast'); t.innerHTML=''; const s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
   if(undo){ const b=document.createElement('button'); b.type='button'; b.textContent='Annuler'; b.onclick=()=>{ t.hidden=true; undo(); }; t.appendChild(b); }
   t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>{t.hidden=true;}, undo?6000:2600); }

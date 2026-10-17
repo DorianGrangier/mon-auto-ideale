@@ -1,4 +1,4 @@
-"""Génère le site statique « Mon Auto Idéale » dans dist/.
+"""Génère le site statique « Mioto » dans dist/.
 
 Usage : python3 scripts/build_site.py [dossier_sortie]
 Entrées : data/data.json (versions), data/avis.json (avis par modèle), data/meta.json (pays, drapeaux,
@@ -62,12 +62,12 @@ def avis_for(b, m):
 def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else None
 
 # --- gabarits communs ----------------------------------------------------------
-FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B5D44'/%3E"
-           "%3Cpath d='M6 20 L9 14 Q10 12 13 12 H19 Q22 12 23.5 14 L26 18 V22 H6Z' fill='%23F2C230'/%3E%3Ccircle cx='11' cy='22' r='3' fill='%23fff'/%3E%3Ccircle cx='21' cy='22' r='3' fill='%23fff'/%3E%3C/svg%3E")
+FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236620F0'/%3E"
+           "%3Cpath d='M7 24V9.5l9 9 9-9V24' fill='none' stroke='%23FFD60A' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
 def nav(p, cur):
     items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
-    return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html">Mon Auto <b>Idéale</b></a><div class="topnav-links">{links}</div></nav>'
+    return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html" aria-label="Mioto, accueil"><span class="logo-name">Mi<b>oto</b></span><span class="logo-tag">comparateur de voitures neuves</span></a><div class="topnav-links">{links}</div></nav>'
 def head(title, desc, path, p, extra=''):
     canon = f'<link rel="canonical" href="{SITE_URL}{path}">\n<meta property="og:url" content="{SITE_URL}{path}">' if SITE_URL else ''
     return f'''<!doctype html>
@@ -80,9 +80,10 @@ def head(title, desc, path, p, extra=''):
 <meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Mioto">
 <meta property="og:locale" content="fr_FR">
 {canon}
-<meta name="theme-color" content="#0B3D2E">
+<meta name="theme-color" content="#6620F0">
 <link rel="icon" href="{FAVICON}">
 <link rel="preload" href="{p}assets/fonts/outfit-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{p}assets/site.css">
@@ -92,7 +93,7 @@ def head(title, desc, path, p, extra=''):
 '''
 def foot(p):
     return f'''<footer class="site-foot"><div class="wrap">
-  <p><b>Mon Auto Idéale</b> — comparateur indépendant de voitures neuves vendues en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
+  <p><b>Mioto</b> — le comparateur indépendant de voitures neuves selon vos critères, pour les modèles vendus en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
   <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
   <p class="small">Prix « à partir de » indicatifs, tarifs constructeurs. Vérifiez les conditions auprès du constructeur ou d'un concessionnaire avant tout achat.</p>
 </div></footer>
@@ -119,7 +120,7 @@ def build_index():
     body = body.replace('__NAV__', nav('', 'comparateur.html')).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS)).replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()}))
     n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
     desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
-    write('comparateur.html', head('Le comparateur | Mon Auto Idéale', desc, 'comparateur.html', '') + body + '\n' + foot(''))
+    write('comparateur.html', head('Le comparateur | Mioto', desc, 'comparateur.html', '') + body + '\n' + foot(''))
 
 
 # --- page d'accueil ------------------------------------------------------------------
@@ -239,12 +240,13 @@ def build_home():
     p = ''; n_models = len(MODELS); n_brands = len({b for b, _ in MODELS}); n_avis = len(AVIS)
     parade = ''.join(SILS[k] for k in ['Citadine', 'SUV urbain', 'Berline', 'Sportive', 'Break', 'Tout-terrain'])
     slides = examples_html()
-    desc = f"Mon Auto Idéale classe les voitures neuves vendues en France selon vos propres critères : une note sur 100 pour chacune des {fmt(len(CARS))} versions de {n_models} modèles, avec fiches et avis."
+    desc = f"Mioto, le comparateur de voitures neuves selon vos critères, classe les voitures neuves vendues en France selon vos propres critères : une note sur 100 pour chacune des {fmt(len(CARS))} versions de {n_models} modèles, avec fiches et avis."
     body = f'''<header class="hero home-hero">
   {nav(p, 'index.html')}
   <div class="home-in">
-    <div class="kicker">Comparateur indépendant de voitures neuves</div>
-    <h1>Mon Auto <span>Idéale</span></h1>
+    <div class="kicker">Indépendant · sans publicité</div>
+    <h1>Mi<span>oto</span></h1>
+    <p class="home-slogan">Le comparateur de voitures neuves selon vos critères</p>
     <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur&nbsp;100</b> qui dit à quel point elle vous correspond.</p>
     <div class="home-ctas">
       <a class="cta cta-main" href="{p}comparateur.html">Lancer le comparateur</a>
@@ -298,7 +300,7 @@ def build_home():
   </section>
 </div>
 '''
-    write('index.html', head('Mon Auto Idéale — trouvez la voiture neuve qui vous correspond', desc, '', p) + body + foot(p))
+    write('index.html', head('Mioto — le comparateur de voitures neuves selon vos critères', desc, '', p) + body + foot(p))
 
 # --- fiches modèles ---------------------------------------------------------------
 def tile(v, l): return f'<div class="tile"><b class="num">{v}</b><span>{l}</span></div>'
@@ -375,7 +377,7 @@ def build_model(b, m, l):
     sims = similar(b, m, l)
     desc = (AVIS.get(f'{b}|{m}') or AVIS.get(f'{b}|{m}|ev') or {}).get('v') or f'{name} : prix, versions, autonomie, consommation et caractéristiques.'
     pm = pmin(l)
-    title = f'{name} : prix, versions et avis' + (f' (dès {fmt(pm)} €)' if pm else '') + ' | Mon Auto Idéale'
+    title = f'{name} : prix, versions et avis' + (f' (dès {fmt(pm)} €)' if pm else '') + ' | Mioto'
     ld = {'@context': 'https://schema.org', '@type': 'Car', 'name': name, 'brand': {'@type': 'Brand', 'name': b}, 'bodyType': c0['c'],
           'vehicleEngine': [{'@type': 'EngineSpecification', 'name': c['v']} for c in l[:10]]}
     ps = [c['p'] for c in l if c.get('p')]
@@ -412,7 +414,7 @@ def build_brands():
         ms = sorted([(mm, ll) for (bb, mm), ll in MODELS.items() if bb == b], key=lambda x: pmin(x[1]) or 10**9)
         secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2><div class="mgrid">{''.join(mini_card(b, mm, ll, p) for mm, ll in ms)}</div></section>'''
     n = len(MODELS)
-    page = head('Toutes les marques et tous les modèles | Mon Auto Idéale', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
+    page = head('Toutes les marques et tous les modèles | Mioto', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
         + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, classés par prix d\'entrée.') \
         + f'<div class="wrap page"><nav class="jump" aria-label="Aller à une marque">{jump}</nav>{secs}</div>' + foot(p)
     write('marques.html', page)
@@ -420,7 +422,7 @@ def build_brands():
 # --- pages de texte ---------------------------------------------------------------
 def build_text(rel, title, h1, kicker, desc, content):
     p = ''
-    write(rel, head(f'{title} | Mon Auto Idéale', desc, rel, p) + hero_small(p, rel, kicker, h1, '') + f'<div class="wrap page prose">{content}</div>' + foot(p))
+    write(rel, head(f'{title} | Mioto', desc, rel, p) + hero_small(p, rel, kicker, h1, '') + f'<div class="wrap page prose">{content}</div>' + foot(p))
 
 METHODE = open(os.path.join(ROOT, 'src/methode.html'), encoding='utf-8').read()
 LEGAL = open(os.path.join(ROOT, 'src/mentions-legales.html'), encoding='utf-8').read()
@@ -434,11 +436,11 @@ def main():
     for (b, m), l in MODELS.items(): build_model(b, m, l)
     build_brands()
     n = len(MODELS)
-    build_text('methode.html', 'Méthode', 'Notre <span>méthode</span>', 'Comment ça marche', "Comment Mon Auto Idéale calcule la note sur 100, d'où viennent les données et comment sont rédigés les avis.",
+    build_text('methode.html', 'Méthode', 'Notre <span>méthode</span>', 'Comment ça marche', "Comment Mioto calcule la note sur 100, d'où viennent les données et comment sont rédigés les avis.",
                METHODE.replace('__N_MODELS__', str(n)).replace('__N_VERSIONS__', fmt(len(CARS))))
-    build_text('mentions-legales.html', 'Mentions légales', 'Mentions <span>légales</span>', 'Informations', 'Mentions légales et données personnelles du site Mon Auto Idéale.', LEGAL)
+    build_text('mentions-legales.html', 'Mentions légales', 'Mentions <span>légales</span>', 'Informations', 'Mentions légales et données personnelles du site Mioto.', LEGAL)
     p4 = SITE_URL or ''
-    write('404.html', head('Page introuvable | Mon Auto Idéale', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
+    write('404.html', head('Page introuvable | Mioto', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
           + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour à l\'accueil</a> · <a href="{p4}comparateur.html">Comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
     urls = ['', 'comparateur.html', 'marques.html', 'methode.html', 'mentions-legales.html'] + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
     if SITE_URL:

@@ -610,3 +610,8 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .ex-dots button{width:9px;height:9px;border-radius:50%;border:0;padding:0;background:var(--track);cursor:pointer}
 .ex-dots button[aria-current]{background:var(--accent);width:22px;border-radius:99px}
 .ex-count{font-size:12.5px;color:var(--muted);min-width:38px;text-align:center}
+/* Nom Mioto : signature sous le logo et sous le titre de l'accueil */
+.topnav .logo{display:inline-flex;align-items:baseline;gap:10px}
+.topnav .logo .logo-tag{font-family:var(--f-body,inherit);font-stretch:normal;font-weight:500;font-size:13px;letter-spacing:0;color:var(--hero-muted);opacity:.85}
+@media (max-width:720px){.topnav .logo .logo-tag{display:none}}
+.home-hero .home-slogan{font-family:var(--f-display);font-weight:600;font-size:clamp(20px,2.4vw,30px);line-height:1.15;color:var(--road);margin:10px 0 0!important;max-width:44ch}
