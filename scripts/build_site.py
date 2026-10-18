@@ -416,7 +416,10 @@ def build_brands():
     n = len(MODELS)
     page = head('Toutes les marques et tous les modèles | Mioto', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
         + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, classés par prix d\'entrée.') \
-        + f'<div class="wrap page"><nav class="jump" aria-label="Aller à une marque">{jump}</nav>{secs}</div>' + foot(p)
+        + f'<div class="wrap page"><nav class="jump jump-desk" aria-label="Aller à une marque">{jump}</nav>' \
+        + f'<details class="jump-mob" id="jump-mob"><summary><span>Aller à une marque</span><small>{len(brands)} marques</small></summary><nav class="jump-list" aria-label="Aller à une marque">{jump}</nav></details>' \
+        + f'{secs}</div>' \
+        + '<script>document.querySelectorAll("#jump-mob a").forEach(a=>a.addEventListener("click",()=>{document.getElementById("jump-mob").open=false}));</script>' + foot(p)
     write('marques.html', page)
 
 # --- pages de texte ---------------------------------------------------------------

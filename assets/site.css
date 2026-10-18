@@ -615,3 +615,18 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .topnav .logo .logo-tag{font-family:var(--f-body,inherit);font-stretch:normal;font-weight:500;font-size:13px;letter-spacing:0;color:var(--hero-muted);opacity:.85}
 @media (max-width:720px){.topnav .logo .logo-tag{display:none}}
 .home-hero .home-slogan{font-family:var(--f-display);font-weight:600;font-size:clamp(20px,2.4vw,30px);line-height:1.15;color:var(--road);margin:10px 0 0!important;max-width:44ch}
+/* Marques et modèles : sur mobile, la liste des marques est repliée dans un menu collant */
+.jump-mob{display:none}
+.brand-sec{scroll-margin-top:72px}
+@media (max-width:760px){
+  .jump-desk{display:none}
+  .jump-mob{display:block;position:sticky;top:0;z-index:5;margin:0 -16px 8px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .jump-mob summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;border:1px solid var(--line);background:var(--raise);border-radius:12px;padding:11px 14px;font-weight:600;color:var(--ink)}
+  .jump-mob summary::-webkit-details-marker{display:none}
+  .jump-mob summary small{margin-left:auto;font-weight:500;color:var(--muted)}
+  .jump-mob summary::after{content:"";width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-3px);transition:transform .15s}
+  .jump-mob[open] summary::after{transform:rotate(-135deg) translateY(-1px)}
+  .jump-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:58vh;overflow:auto;padding:10px 0 4px}
+  .jump-list a{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--raise);border-radius:10px;padding:9px 10px;font-size:14px;text-decoration:none;color:var(--ink);min-width:0}
+  .brand-sec{scroll-margin-top:80px}
+}
