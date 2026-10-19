@@ -283,7 +283,10 @@ const CRITS = [
   score(c,s){ if(c.nc==null) return [UNKNOWN,'non testée'];
     const v=c.nc,t=s.val; return [v>=t?(t>=5?1:BASE+(1-BASE)*(v-t)/(5-t)):BASE*Math.max(0,1-(t-v)/2), '★'.repeat(v)+' '+v+'/5']; }},
  {id:'price', name:'Prix', short:'Prix',
-  score(c,s){ return c.p==null?[UNKNOWN,'n.c.']:[atMost(c.p,s.val,.15,.4), 'à partir de\u00a0'+eur(c.p)]; }},
+  score(c,s){ if(c.p==null) return [UNKNOWN,'n.c.']; const lab='à partir de\u00a0'+eur(c.p);
+    // sous le prix minimum : la note baisse jusqu'à 0 à 30 % en dessous ; au-dessus du maximum : 0 dès 15 % au-dessus
+    if(s.min>0 && c.p<s.min) return [BASE*Math.max(0,1-(s.min-c.p)/(.3*s.min)), lab];
+    return [atMost(c.p,s.val,.15,.4), lab]; }},
 ];
 
 const ORDER=['price','body','seats','moto','power','cost','aut','chg','box','trans','trunk','ncap'];
@@ -293,7 +296,7 @@ CRITS.sort((x,y)=>ORDER.indexOf(x.id)-ORDER.indexOf(y.id));
 const BLANK = ()=>({
   moto:{on:false,w:2,val:new Set()}, body:{on:false,w:2,val:new Set()}, seats:{on:false,w:2,val:'le5'}, power:{on:false,w:2,min:100,max:200},
   cost:{on:false,w:2,val:1500}, aut:{on:false,w:2,val:350}, chg:{on:false,w:1,val:100},
-  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,val:40000}
+  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,min:0,val:40000}
 });
 const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:true},o);
   set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
@@ -322,7 +325,7 @@ const CONTROL = {
   trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
   trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
-  price: s=>range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Budget maximum, prix catalogue. Au-delà, la note baisse rapidement : 0 dès 15&nbsp;% au-dessus du budget.</p>`,
+  price: s=>`<div class="pr-lab">Prix minimum</div>`+range('price','min',0,150000,500,s.min,'€')+`<div class="pr-lab">Prix maximum</div>`+range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`,
 };
 
 function settingsBlock(){ return `
@@ -401,14 +404,19 @@ form.addEventListener('input',e=>{
     hideExample(); update(); return; }
   if(t.id==='e-kit'){ E.kit=t.checked; update(); return; }
   if(t.dataset.e){ const v=parseFloat(String(t.value).replace(',','.')); if(v>0){ E[t.dataset.e]=v; update(); } return; }
-  if(t.dataset.num){ const k=t.dataset.k,f=t.dataset.f, v=parseFloat(String(t.value).replace(',','.')); if(!(v>0)) return;
+  if(t.dataset.num){ const k=t.dataset.k,f=t.dataset.f, v=parseFloat(String(t.value).replace(',','.')); if(!(v>0 || (k==='price'&&f==='min'&&v===0))) return;
     if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
-    const sl=document.getElementById(`r-${k}-${f}`); if(sl) sl.value=v; update(); return; }
+    const sl=document.getElementById(`r-${k}-${f}`); if(sl) sl.value=v; if(k==='price') fixPrice(f); update(); return; }
   if(t.type==='range'){ const k=t.dataset.k,f=t.dataset.f, v=+t.value;
     if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
-    const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; update(); }
+    const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; if(k==='price') fixPrice(f); update(); }
 });
 function rerenderCrit(){ renderForm(); }
+// fourchette de prix : le minimum reste sous le maximum
+function fixPrice(f){ const s=S.price; if(!(s.min>0) || s.min<s.val) return;
+  const other = f==='min' ? 'val' : 'min';
+  if(f==='min') s.val=s.min+1000; else s.min=Math.max(0,s.val-1000);
+  const v=s[other]; const sl=document.getElementById(`r-price-${other}`), nb=document.getElementById(`n-price-${other}`); if(sl) sl.value=v; if(nb) nb.value=v; }
 const COPY_BTN = `<button type="button" class="restart ghost" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copier le résumé</button>`;
 const RESTART_BTN = `<button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Recommencer</button>`;
 let undoState=null;
@@ -479,7 +487,7 @@ function weakPoint(r){ if(!r.parts.length) return null;
   const p=r.parts.reduce((a,b)=> b.v<a.v?b:a); if(p.v>=.8) return {ok:true, txt:'Remplit tous vos critères'};
   const c=r.car, s=S[p.cr.id], soft=p.v>=.4;
   if(p.v===UNKNOWN && /n\.c\.|non testée/.test(p.txt)) return {txt: p.cr.id==='ncap'?'Non testée Euro NCAP':'Donnée manquante ('+p.cr.short.toLowerCase()+')'};
-  const M={ price:()=> soft?'Un peu au-dessus du budget':'Au-dessus du budget',
+  const M={ price:()=> (s.min>0 && c.p<s.min) ? (soft?'Un peu sous votre prix minimum':'Sous votre prix minimum') : (soft?'Un peu au-dessus du budget':'Au-dessus du budget'),
     cost:()=> soft?'Énergie un peu chère à l’usage':'Énergie chère à l’usage',
     trunk:()=> soft?'Coffre un peu juste':'Coffre trop petit',
     aut:()=> c.plug?(soft?'Autonomie un peu juste':'Autonomie insuffisante'):'Pas de batterie rechargeable',
@@ -509,7 +517,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-vers]'); 
 function summaryText(){ const L=[];
   CRITS.forEach(cr=>{ if(!isActive(cr)) return; const s=S[cr.id]; let v='';
     switch(cr.id){
-      case 'price': v='budget maximum '+eur(s.val); break;
+      case 'price': v=s.min>0?'budget de '+eur(s.min)+' à '+eur(s.val):'budget maximum '+eur(s.val); break;
       case 'body': if(!s.val.size) return; v=[...s.val].join(' ou '); break;
       case 'seats': v=s.val==='gt5'?'plus de 5 places':'5 places ou moins'; break;
       case 'moto': if(!s.val.size) return; v=[...s.val].map(x=>(MOTO_OPTS.find(o=>o[0]===x)||[x,x])[1]).join(' ou '); break;
