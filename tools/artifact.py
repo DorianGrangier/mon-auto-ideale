@@ -31,6 +31,8 @@ if m and os.path.isdir(pdir):
     h = h.replace("const PHOTO_BASE = 'assets/photos/';", "const PHOTO_BASE = '';")
 else:
     h = h.replace("const PHOTO_BASE = 'assets/photos/';", f"const PHOTO_BASE = '{BASE}assets/photos/';")
+# Lien de partage : dans l'aperçu, il pointe vers le comparateur en ligne
+h = h.replace("function shareURL(){ return location.href.split('#')[0].replace(/[?&]exemple\\b/,'')+", f"function shareURL(){{ return '{BASE}comparateur.html'+")
 assert 'assets/site.css' not in h
 open(out, 'w', encoding='utf-8').write(h)
 print('ok', len(h) // 1024, 'Ko')
