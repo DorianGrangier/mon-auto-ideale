@@ -18,6 +18,32 @@ LIENS = load('data/liens.json') if os.path.exists(os.path.join(ROOT, 'data/liens
 for _c in CARS:
     if _c.get('u'): LIENS[_c['b'] + '|' + _c['m']] = _c['u']
 PH = load('data/photos.json') if os.path.exists(os.path.join(ROOT, 'data/photos.json')) else {}
+
+# --- Malus 2026 (estimation) : malus CO2 + malus au poids, plafonnés ensemble à 80 000 € ----------------------------
+# Barème CO2 2026 (L'argus, 1er janvier 2026) : 50 € à 108 g/km … 80 000 € dès 192 g/km.
+MALUS_CO2 = [50, 75, 100, 125, 150, 170, 190, 210, 230, 240, 260, 280, 310, 330, 360, 400, 450, 540, 650, 740, 818, 898, 983,
+             1074, 1172, 1276, 1386, 1504, 1629, 1761, 1901, 2049, 2205, 2370, 2544, 2726, 2918, 3119, 3331, 3552, 3784, 4026,
+             4279, 4543, 4818, 5105, 5404, 5715, 6126, 6637, 7248, 7959, 8770, 9681, 10692, 11803, 13014, 14325, 15736, 17247,
+             18858, 20569, 22380, 24291, 26302, 28413, 30624, 32935, 35346, 37857, 40468, 43179, 45990, 48901, 51912, 55023,
+             58134, 61245, 64356, 67467, 70578, 73689, 76800, 79911]   # 108 à 191 g/km
+def malus_co2(g):
+    if g is None or g < 108: return 0
+    return 80000 if g >= 192 else MALUS_CO2[int(g) - 108]
+def malus_poids(c):
+    """Malus au poids 2026 : seuil 1 500 kg, 10 à 30 €/kg par tranche. Électriques et hydrogène exonérés ;
+    abattement de 200 kg (plafonné à 15 % de la masse) pour les hybrides rechargeables de plus de 50 km d'autonomie,
+    100 kg pour les autres hybrides et les micro-hybrides (barème du Journal de l'Automobile, 1er juillet 2026)."""
+    w, e = c.get('w'), c['e']
+    if w is None or e in ('ev', 'h2'): return 0
+    if e == 'phev': ab = min(200, .15 * w) if (c.get('aut') or 0) > 50 else 100
+    else: ab = 100 if e in ('hev', 'essm', 'diem') else 0
+    m = w - ab; t = 0
+    for lo, hi, r in ((1500, 1700, 10), (1700, 1800, 15), (1800, 1900, 20), (1900, 2000, 25), (2000, 10**6, 30)):
+        if m > lo: t += (min(m, hi) - lo) * r
+    return round(t)
+for _c in CARS:
+    _ml = min(80000, malus_co2(_c.get('co2')) + malus_poids(_c))
+    if _ml: _c['ml'] = _ml
 NATION, ADJ, SITE, ENERGY, TR, SILS = META['NATION'], META['ADJ'], META['SITE'], META['ENERGY'], META['TR'], META['SILS']
 FLAGS = META['FLAG_SVG']; SCORE_ENV = set(META['SCORE_ENV'])
 TODAY = datetime.date.today()
@@ -142,9 +168,10 @@ def _crit(c, k, o):
     if k == 'price':
         v, t = c.get('p'), o['val']
         if v is None: return None
+        v += c.get('ml', 0)   # prix malus 2026 inclus, comme dans le comparateur
         sc = _at_most(v, t, .15, .4)
         why = f'{eur(t - v)} sous le budget, bonus' if sc > .805 else ('Tout juste dans le budget' if v <= t else f'{eur(v - t)} au-dessus du budget, la note chute')
-        return 'Budget', f'{eur(t)} maximum', eur(v), sc, why
+        return 'Budget', f'{eur(t)} maximum', eur(v) + (' malus inclus' if c.get('ml') else ''), sc, why
     if k == 'body':
         tg = tags(c); sc = 1 if any(t in o['val'] for t in tg) else 0
         return 'Carrosserie', ' ou '.join(o['val']), c['c'], sc, 'Conforme' if sc else 'Non conforme'
@@ -364,7 +391,7 @@ def build_model(b, m, l):
     soon = {c['y'] for c in l if c.get('y') and c['y'] > TODAY.year}
     if soon: badges.append(f'<span class="bdg warn">Arrivée prévue en {min(soon)}</span>')
     site = LIENS.get(f'{b}|{m}') or SITE.get(b)
-    rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{esc(c.get('bxl') or '')}</td><td>{esc(TR.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td><td class="num">{c.get('co2','—')}</td><td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}</td></tr>''' for c in l)
+    rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{esc(c.get('bxl') or '')}</td><td>{esc(TR.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td><td class="num">{c.get('co2','—')}</td><td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}{f'<small class="mlt">+ {eur(c["ml"])} de malus</small>' if c.get('ml') else ''}</td></tr>''' for c in l)
     def span(vals, unit='', d=0):
         return rng(vals, unit, d)
     dl = [('Carrosserie', esc(c0['c'])), ('Motorisations', esc(' · '.join(en))), ('Places', esc(' ou '.join(sorted({str(c.get('pl')) for c in l if c.get('pl')})))),
@@ -397,7 +424,7 @@ def build_model(b, m, l):
   {avis_html(b, m)}
   <section class="card"><h2>{f'Les {len(l)} versions' if len(l) > 1 else 'La seule version'}</h2>
     <div class="vt-wrap"><table class="vtable"><thead><tr><th scope="col">Version</th><th scope="col">Énergie</th><th scope="col">Puissance</th><th scope="col">Boîte</th><th scope="col">Transmission</th><th scope="col">Conso. / autonomie</th><th scope="col">CO₂ (g/km)</th><th scope="col">Coffre (L)</th><th scope="col">Prix dès</th></tr></thead><tbody>{rows}</tbody></table></div>
-    <p class="small">Consommation et autonomie : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Prix « à partir de » de la finition d'entrée pour chaque motorisation.</p>
+    <p class="small">Consommation et autonomie : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Prix « à partir de » de la finition d'entrée pour chaque motorisation. Malus 2026 (CO₂ et poids) estimé d'après le barème officiel, hors abattements familiaux.</p>
   </section>
   <section class="card"><h2>Caractéristiques</h2><dl class="specs">{''.join(f'<dt>{k}</dt><dd>{v}</dd>' for k, v in dl)}</dl></section>
   {f'<section><h2 class="sec-title">À comparer aussi</h2><div class="mgrid">{"".join(mini_card(bb, mm, ll, p) for _, bb, mm, ll in sims)}</div></section>' if sims else ''}

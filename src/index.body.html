@@ -283,10 +283,11 @@ const CRITS = [
   score(c,s){ if(c.nc==null) return [UNKNOWN,'non testée'];
     const v=c.nc,t=s.val; return [v>=t?(t>=5?1:BASE+(1-BASE)*(v-t)/(5-t)):BASE*Math.max(0,1-(t-v)/2), '★'.repeat(v)+' '+v+'/5']; }},
  {id:'price', name:'Prix', short:'Prix',
-  score(c,s){ if(c.p==null) return [UNKNOWN,'n.c.']; const lab='à partir de\u00a0'+eur(c.p);
+  score(c,s){ if(c.p==null) return [UNKNOWN,'n.c.']; const ml=(s.malus!==false && c.ml)||0, p=c.p+ml;
+    const lab='à partir de\u00a0'+eur(c.p)+(ml?' + malus '+eur(ml):'');
     // sous le prix minimum : la note baisse jusqu'à 0 à 30 % en dessous ; au-dessus du maximum : 0 dès 15 % au-dessus
-    if(s.min>0 && c.p<s.min) return [BASE*Math.max(0,1-(s.min-c.p)/(.3*s.min)), lab];
-    return [atMost(c.p,s.val,.15,.4), lab]; }},
+    if(s.min>0 && p<s.min) return [BASE*Math.max(0,1-(s.min-p)/(.3*s.min)), lab];
+    return [atMost(p,s.val,.15,.4), lab]; }},
 ];
 
 const ORDER=['price','body','seats','moto','power','cost','aut','chg','box','trans','trunk','ncap'];
@@ -296,7 +297,7 @@ CRITS.sort((x,y)=>ORDER.indexOf(x.id)-ORDER.indexOf(y.id));
 const BLANK = ()=>({
   moto:{on:false,w:2,val:new Set()}, body:{on:false,w:2,val:new Set()}, seats:{on:false,w:2,val:'le5'}, power:{on:false,w:2,min:100,max:200},
   cost:{on:false,w:2,val:1500}, aut:{on:false,w:2,val:350}, chg:{on:false,w:1,val:100},
-  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,min:0,val:40000}
+  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,min:0,val:40000,malus:true}
 });
 const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:true},o);
   set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
@@ -334,6 +335,7 @@ const CONTROL = {
   trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
   price: s=>dualHTML('price',s)
+     +`<label class="chk"><input type="checkbox" data-k="price" data-chk="malus" ${s.malus!==false?'checked':''}> Inclure le malus 2026 (CO₂ et poids)</label>`
      +`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`,
 };
 
@@ -410,6 +412,7 @@ form.addEventListener('input',e=>{
   if(t.dataset.sw){ S[t.dataset.sw].on=t.checked; document.getElementById('c-'+t.dataset.sw).classList.toggle('off',!t.checked); hideExample(); update(); return; }
   if(t.id==='e-kit'){ E.kit=t.checked; update(); return; }
   if(t.dataset.e){ const v=parseFloat(String(t.value).replace(',','.')); if(v>0){ E[t.dataset.e]=v; update(); } return; }
+  if(t.dataset.chk){ S[t.dataset.k][t.dataset.chk]=t.checked; hideExample(); update(); return; }
   if(t.dataset.num && DUAL[t.dataset.k]){ const k=t.dataset.k,f=t.dataset.f,d=DUAL[k], raw=String(t.value).trim(), v=parseFloat(raw.replace(',','.'));
     if(raw==='' && f===d.b && d.inf) S[k][f]=0; else if(!(v>=0)) return; else S[k][f]=v;
     hideExample(); fixDual(k,f,true); update(); return; }
@@ -536,7 +539,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-vers]'); 
 function summaryText(){ const L=[];
   CRITS.forEach(cr=>{ if(!isActive(cr)) return; const s=S[cr.id]; let v='';
     switch(cr.id){
-      case 'price': v=s.min>0?'budget de '+eur(s.min)+' à '+eur(s.val):'budget maximum '+eur(s.val); break;
+      case 'price': v=(s.min>0?'budget de '+eur(s.min)+' à '+eur(s.val):'budget maximum '+eur(s.val))+(s.malus!==false?' (malus inclus)':''); break;
       case 'body': if(!s.val.size) return; v=[...s.val].join(' ou '); break;
       case 'seats': v=s.val==='gt5'?'plus de 5 places':'5 places ou moins'; break;
       case 'moto': if(!s.val.size) return; v=[...s.val].map(x=>(MOTO_OPTS.find(o=>o[0]===x)||[x,x])[1]).join(' ou '); break;
@@ -598,7 +601,7 @@ const specs = c=>{ const rows=[
   ['Boîte',c.bxl],['Transmission',TR[c.tr]],['Places / portes',c.pl+' / '+c.dr],['Longueur',c.len?fmt(c.len,2)+' m':null],
   ['Poids à vide',c.w?fmt(c.w)+' kg':null],['Coffre',c.tk?c.tk+' L':null],['Euro NCAP',c.nc?c.nc+' étoiles':'non testée'],
   ["Crit'Air",c.ca!=null?String(c.ca):null],['Commercialisée depuis',c.y?String(c.y):null],['Fin de commercialisation',c.end?String(c.end):null],
-  ['Aides à l\'achat',c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],['Prix',c.p==null?'n.c.':'à partir de '+eur(c.p)]];
+  ['Aides à l\'achat',c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],['Prix',c.p==null?'n.c.':'à partir de '+eur(c.p)],['Malus 2026',c.ml?eur(c.ml)+' (estimation)':(c.p==null?null:'aucun')]];
   return `<dl class="specs">${rows.filter(r=>r[1]).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`; };
 /* Mise en page aérée : l'essentiel visible, le reste dans des volets dépliables */
 const tile = (v,l)=> `<div class="tile"><b class="num">${v}</b><span>${l}</span></div>`;
@@ -668,7 +671,7 @@ function update(){
       ${photoOf(c)?`<figure class="best-photo"><img src="${PHOTO_BASE}${photoOf(c).f}" alt="${c.b} ${c.m}" decoding="async"><figcaption>${photoOf(c).c}</figcaption></figure>`:`<div class="best-sil">${silFor(c)}</div>`}
       <h3>${c.b} ${c.m}</h3>
       <p class="ver">${flag(NATION[c.b])} ${c.v}</p>
-      <div class="price-row"><div class="price num">${c.p==null?'Prix n.c.':`<small class="from">À partir de</small>${eur(c.p)}`}</div></div>
+      <div class="price-row"><div class="price num">${c.p==null?'Prix n.c.':`<small class="from">À partir de</small>${eur(c.p)}`}</div>${c.ml?`<div class="ml-note">+ ${eur(c.ml)} de malus 2026</div>`:''}</div>
       ${actions(c,true)}
       ${badges(top)}
       ${statTiles(c)}
@@ -747,6 +750,7 @@ function syncCmp(){
 }
 const SPEC_ROWS = [
   ['Prix', c=>c.p, c=>c.p==null?'n.c.':'à partir de '+eur(c.p), 'lo'],
+  ['Malus 2026', c=>c.ml||0, c=>c.ml?eur(c.ml):'aucun', 'lo'],
   ['Aides à l\'achat', null, c=>c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],
   ['Fin de commercialisation', null, c=>c.end?String(c.end):'—'],
   ['Marque', null, c=>brandFlag(c.b)+' '+(ADJ[NATION[c.b]]||'')],
