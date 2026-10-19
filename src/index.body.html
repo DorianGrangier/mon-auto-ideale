@@ -309,7 +309,18 @@ const W_LABELS = [[1,'Secondaire'],[2,'Important'],[3,'Impératif']];
 const seg = (key,field,opts,cur)=> `<div class="seg" role="group">${opts.map(([v,l])=>`<button type="button" data-k="${key}" data-f="${field}" data-v="${v}" aria-pressed="${String(v)===String(cur)}">${l}</button>`).join('')}</div>`;
 const range = (key,field,min,max,step,val,unit,dec=0)=> `<div class="range-row"><input type="range" id="r-${key}-${field}" data-k="${key}" data-f="${field}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${unit} (curseur)"><span class="numbox"><input type="number" class="num-in" id="n-${key}-${field}" data-k="${key}" data-f="${field}" data-num="1" min="0" step="any" inputmode="numeric" value="${val}" aria-label="${unit}"><span class="unit">${unit}</span></span></div>`;
 
-const PMAX=150000, PGAP=500;  // bornes du curseur de prix
+// curseurs à deux poignées (fourchettes) : bornes, pas, écart minimal ; inf = la dernière position vaut « sans limite » (stockée 0)
+const DUAL={ price:{a:'min',b:'val',lo:0,hi:150000,step:500,gap:500,unit:'€',la:'Prix minimum',lb:'Prix maximum'},
+             power:{a:'min',b:'max',lo:50,hi:1000,step:10,gap:10,unit:'ch',la:'Puissance minimum',lb:'Puissance maximum',inf:true} };
+const dTop = d=> d.inf ? d.hi+d.step : d.hi;                      // position la plus à droite du curseur
+const dPos = (d,v)=> (Math.min(dTop(d),v)-d.lo)/(dTop(d)-d.lo)*100;  // position en %
+const dSl  = (d,f,s)=> f===d.b && d.inf && !s[f] ? dTop(d) : s[f];   // valeur du curseur
+function dualHTML(k,s){ const d=DUAL[k];
+  const nb=(f,l)=>{ const unl = f===d.b && d.inf && !s[f];
+    return `<span class="numbox"><input type="number" class="num-in" id="n-${k}-${f}" data-k="${k}" data-f="${f}" data-num="1" min="${d.lo}" max="${d.hi}" step="any" inputmode="numeric" value="${unl?'':s[f]}" ${unl||(f===d.b&&d.inf)?'placeholder="sans limite"':''} aria-label="${l}"><span class="unit">${d.unit}</span></span>`; };
+  const sl=(f,l)=>`<input type="range" id="r-${k}-${f}" data-k="${k}" data-f="${f}" min="${d.lo}" max="${dTop(d)}" step="${d.step}" value="${dSl(d,f,s)}" aria-label="${l} (curseur)">`;
+  return `<div class="dual" id="dual-${k}" style="--a:${dPos(d,s[d.a])}%;--b:${dPos(d,dSl(d,d.b,s))}%"><div class="dual-track"></div>${sl(d.a,d.la)}${sl(d.b,d.lb)}</div>`
+    +`<div class="dual-nums"><label>De ${nb(d.a,d.la)}</label><label>à ${nb(d.b,d.lb)}</label></div>`; }
 const CONTROL = {
   moto: s=>`<div class="chips">${MOTO_OPTS.map(([v,l])=>`<button type="button" class="chip" data-k="moto" data-chip="${v}" aria-pressed="${s.val.has(v)}">${l}</button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une motorisation proche (ex. hybride rechargeable pour « hybride ») obtient une note partielle. Choisir « Électrique » affiche les critères d'autonomie et de puissance de recharge.</p>`,
   body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${v}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
@@ -317,21 +328,13 @@ const CONTROL = {
   cost: s=>range('cost','val',300,4000,50,s.val,'€/an')+`<p class="hint">Budget maximum de carburant ou d'électricité par an, selon le kilométrage et les prix ci-dessous.</p>`,
   aut: s=>range('aut','val',30,700,10,s.val,'km')+`<p class="hint">Autonomie WLTP mixte minimale annoncée par le constructeur. Concerne les électriques et hybrides rechargeables.</p>`,
   chg: s=>range('chg','val',7,300,1,s.val,'kW')+`<p class="hint">Puissance maximale acceptée par la voiture (borne rapide DC si disponible).</p>`,
-  power: s=>{ const opt=(list,cur)=>list.map(([v,l])=>`<option value="${v}" ${v===cur?'selected':''}>${l}</option>`).join('');
-    const steps=[]; for(let h=50;h<=800;h+=50) steps.push(h);
-    return `<div class="pw"><label for="pw-min">De</label><select id="pw-min" data-k="power" data-f="min">${opt(steps.filter(h=>h<800).map(h=>[h,h+' ch']),s.min)}</select>
-      <label for="pw-max">à</label><select id="pw-max" data-k="power" data-f="max">${opt([...steps.filter(h=>h>50).map(h=>[h,h+' ch']),[0,'sans limite']],s.max)}</select></div>
-      <p class="hint">Paliers de 50 ch. Une voiture un peu en dehors de la fourchette obtient une note partielle.</p>`; },
+  power: s=>dualHTML('power',s)+`<p class="hint">De 50 à 1 000 ch, par pas de 10 ch. Poussez la poignée de droite au bout (ou videz la case) pour « sans limite ». Une voiture un peu en dehors de la fourchette obtient une note partielle.</p>`,
   box: s=>seg('box','val',[['A','Automatique'],['M','Manuelle']],s.val),
   trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
   trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
-  price: s=>{ const nb=(f,v,l)=>`<span class="numbox"><input type="number" class="num-in" id="n-price-${f}" data-k="price" data-f="${f}" data-num="1" min="0" max="${PMAX}" step="any" inputmode="numeric" value="${v}" aria-label="${l}"><span class="unit">€</span></span>`;
-    return `<div class="dual" id="dual-price" style="--a:${s.min/PMAX*100}%;--b:${s.val/PMAX*100}%"><div class="dual-track"></div>`
-     +`<input type="range" id="r-price-min" data-k="price" data-f="min" min="0" max="${PMAX}" step="500" value="${s.min}" aria-label="Prix minimum (curseur)">`
-     +`<input type="range" id="r-price-val" data-k="price" data-f="val" min="0" max="${PMAX}" step="500" value="${s.val}" aria-label="Prix maximum (curseur)"></div>`
-     +`<div class="dual-nums"><label>De ${nb('min',s.min,'Prix minimum')}</label><label>à ${nb('val',s.val,'Prix maximum')}</label></div>`
-     +`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`; },
+  price: s=>dualHTML('price',s)
+     +`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`,
 };
 
 function settingsBlock(){ return `
@@ -405,29 +408,34 @@ form.addEventListener('click',e=>{
 form.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.sw){ S[t.dataset.sw].on=t.checked; document.getElementById('c-'+t.dataset.sw).classList.toggle('off',!t.checked); hideExample(); update(); return; }
-  if(t.tagName==='SELECT' && t.dataset.k==='power'){ const s=S.power; s[t.dataset.f]=+t.value;
-    if(s.max && s.max<=s.min){ if(t.dataset.f==='min') s.max=s.min+50; else s.min=Math.max(50,s.max-50); renderForm(); }
-    hideExample(); update(); return; }
   if(t.id==='e-kit'){ E.kit=t.checked; update(); return; }
   if(t.dataset.e){ const v=parseFloat(String(t.value).replace(',','.')); if(v>0){ E[t.dataset.e]=v; update(); } return; }
-  if(t.dataset.num){ const k=t.dataset.k,f=t.dataset.f, v=parseFloat(String(t.value).replace(',','.')); if(!(v>0 || (k==='price'&&f==='min'&&v===0))) return;
+  if(t.dataset.num && DUAL[t.dataset.k]){ const k=t.dataset.k,f=t.dataset.f,d=DUAL[k], raw=String(t.value).trim(), v=parseFloat(raw.replace(',','.'));
+    if(raw==='' && f===d.b && d.inf) S[k][f]=0; else if(!(v>=0)) return; else S[k][f]=v;
+    hideExample(); fixDual(k,f,true); update(); return; }
+  if(t.dataset.num){ const k=t.dataset.k,f=t.dataset.f, v=parseFloat(String(t.value).replace(',','.')); if(!(v>0)) return;
     if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
-    const sl=document.getElementById(`r-${k}-${f}`); if(sl) sl.value=v; if(k==='price') fixPrice(f); update(); return; }
+    const sl=document.getElementById(`r-${k}-${f}`); if(sl) sl.value=v; update(); return; }
+  if(t.type==='range' && DUAL[t.dataset.k]){ const k=t.dataset.k,f=t.dataset.f,d=DUAL[k], v=+t.value;
+    S[k][f] = (f===d.b && d.inf && v>d.hi) ? 0 : v; hideExample(); fixDual(k,f,false); update(); return; }
   if(t.type==='range'){ const k=t.dataset.k,f=t.dataset.f, v=+t.value;
     if(k==='energy') E.km=v; else { S[k][f]=v; hideExample(); }
-    const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; if(k==='price') fixPrice(f); update(); }
+    const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; update(); }
 });
 function rerenderCrit(){ renderForm(); }
-// en quittant une case de prix, on y réaffiche la valeur retenue (bornée à 0–150 000 €)
-form.addEventListener('change',e=>{ const t=e.target; if(t.dataset.k==='price' && t.dataset.num) t.value=S.price[t.dataset.f]; });
-// fourchette de prix sur un seul curseur à deux poignées : 0 à 150 000 €, le minimum reste sous le maximum
-function fixPrice(f){ const s=S.price;
-  s.min=Math.min(Math.max(0,s.min),PMAX-PGAP); s.val=Math.min(Math.max(PGAP,s.val),PMAX);
-  if(s.min>s.val-PGAP){ if(f==='min') s.min=s.val-PGAP; else s.val=Math.min(PMAX,s.min+PGAP); }
-  ['min','val'].forEach(k=>{ const sl=document.getElementById(`r-price-${k}`), nb=document.getElementById(`n-price-${k}`);
-    if(sl && +sl.value!==s[k]) sl.value=s[k]; if(nb && +nb.value!==s[k] && document.activeElement!==nb) nb.value=s[k]; });
-  const d=document.getElementById('dual-price'); if(d){ d.style.setProperty('--a',s.min/PMAX*100+'%'); d.style.setProperty('--b',s.val/PMAX*100+'%');
-    document.getElementById('r-price-min').style.zIndex = s.min>PMAX*0.9 ? 3 : 2; } }
+// en quittant une case de fourchette, on y réaffiche la valeur retenue (bornée)
+form.addEventListener('change',e=>{ const t=e.target, d=DUAL[t.dataset.k]; if(d && t.dataset.num){ const v=S[t.dataset.k][t.dataset.f]; t.value = (t.dataset.f===d.b && d.inf && !v) ? '' : v; } });
+// fourchette sur un seul curseur à deux poignées : valeurs bornées, la poignée basse reste sous la haute
+function fixDual(k,f,typing){ const d=DUAL[k], s=S[k], A=d.a, B=d.b;
+  const unl = d.inf && !s[B];
+  s[A]=Math.min(Math.max(d.lo,s[A]), d.hi-(unl?0:d.gap));
+  if(!unl) s[B]=Math.min(Math.max(d.lo+d.gap,s[B]), d.hi);
+  if(!unl && s[A]>s[B]-d.gap){ if(f===A) s[A]=s[B]-d.gap; else s[B]=Math.min(d.hi,s[A]+d.gap); }
+  [A,B].forEach(x=>{ const sl=document.getElementById(`r-${k}-${x}`), nb=document.getElementById(`n-${k}-${x}`);
+    const sv=dSl(d,x,s); if(sl && +sl.value!==sv) sl.value=sv;
+    if(nb && !(typing && document.activeElement===nb)){ const want=(x===B&&d.inf&&!s[x])?'':String(s[x]); if(nb.value!==want) nb.value=want; } });
+  const el=document.getElementById('dual-'+k); if(el){ el.style.setProperty('--a',dPos(d,s[A])+'%'); el.style.setProperty('--b',dPos(d,dSl(d,B,s))+'%');
+    document.getElementById(`r-${k}-${A}`).style.zIndex = dPos(d,s[A])>90 ? 3 : 2; } }
 const COPY_BTN = `<button type="button" class="restart ghost" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copier le résumé</button>`;
 const RESTART_BTN = `<button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Recommencer</button>`;
 let undoState=null;
