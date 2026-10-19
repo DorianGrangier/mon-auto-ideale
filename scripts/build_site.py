@@ -395,7 +395,7 @@ def build_model(b, m, l):
     <div class="tiles">{''.join(tiles)}</div>
   </section>
   {avis_html(b, m)}
-  <section class="card"><h2>Les {len(l)} version{'s' if len(l) > 1 else ''}</h2>
+  <section class="card"><h2>{f'Les {len(l)} versions' if len(l) > 1 else 'La seule version'}</h2>
     <div class="vt-wrap"><table class="vtable"><thead><tr><th scope="col">Version</th><th scope="col">Énergie</th><th scope="col">Puissance</th><th scope="col">Boîte</th><th scope="col">Transmission</th><th scope="col">Conso. / autonomie</th><th scope="col">CO₂ (g/km)</th><th scope="col">Coffre (L)</th><th scope="col">Prix dès</th></tr></thead><tbody>{rows}</tbody></table></div>
     <p class="small">Consommation et autonomie : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Prix « à partir de » de la finition d'entrée pour chaque motorisation.</p>
   </section>
