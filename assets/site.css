@@ -643,9 +643,14 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .dual-nums{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
 .dual-nums label{display:inline-flex;align-items:center;gap:6px}
 /* Marques et modèles (ordinateur) : index des marques en grille régulière, discret et non collant */
-.jump.jump-desk{display:block;columns:150px auto;column-gap:10px;position:static;
+.jump.jump-desk{display:block;column-count:8;column-gap:6px;position:static;
   margin:4px 0 20px;padding:12px 14px;background:var(--raise);border:1px solid var(--line);border-radius:14px}
 .jump.jump-desk a{display:flex;break-inside:avoid;border:0;background:none;border-radius:8px;padding:6px 8px;font-size:14px;line-height:1.2;justify-content:flex-start;gap:8px;min-width:0}
 .jump.jump-desk a:hover{background:var(--chip);color:var(--accent-strong)}
 .jump.jump-desk a .flag,.jump.jump-desk a svg{flex:none;width:18px;height:12px}
 @media (min-width:761px){.brand-sec{scroll-margin-top:16px}}
+/* index des marques : 8 colonnes × 5 lignes (40 marques) sur grand écran, 5 colonnes × 8 lignes en dessous */
+@media (max-width:1199px){.jump.jump-desk{column-count:5}}
+@media (max-width:899px){.jump.jump-desk{column-count:4}}
+.jump.jump-desk a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:1200px){.jump.jump-desk{padding:12px 10px}.jump.jump-desk a{font-size:13.5px;padding:6px 6px;gap:7px}}
