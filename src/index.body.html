@@ -309,6 +309,7 @@ const W_LABELS = [[1,'Secondaire'],[2,'Important'],[3,'Impératif']];
 const seg = (key,field,opts,cur)=> `<div class="seg" role="group">${opts.map(([v,l])=>`<button type="button" data-k="${key}" data-f="${field}" data-v="${v}" aria-pressed="${String(v)===String(cur)}">${l}</button>`).join('')}</div>`;
 const range = (key,field,min,max,step,val,unit,dec=0)=> `<div class="range-row"><input type="range" id="r-${key}-${field}" data-k="${key}" data-f="${field}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${unit} (curseur)"><span class="numbox"><input type="number" class="num-in" id="n-${key}-${field}" data-k="${key}" data-f="${field}" data-num="1" min="0" step="any" inputmode="numeric" value="${val}" aria-label="${unit}"><span class="unit">${unit}</span></span></div>`;
 
+const PMAX=150000, PGAP=500;  // bornes du curseur de prix
 const CONTROL = {
   moto: s=>`<div class="chips">${MOTO_OPTS.map(([v,l])=>`<button type="button" class="chip" data-k="moto" data-chip="${v}" aria-pressed="${s.val.has(v)}">${l}</button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une motorisation proche (ex. hybride rechargeable pour « hybride ») obtient une note partielle. Choisir « Électrique » affiche les critères d'autonomie et de puissance de recharge.</p>`,
   body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${v}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
@@ -325,7 +326,12 @@ const CONTROL = {
   trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
   trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
-  price: s=>`<div class="pr-lab">Prix minimum</div>`+range('price','min',0,150000,500,s.min,'€')+`<div class="pr-lab">Prix maximum</div>`+range('price','val',8000,150000,500,s.val,'€')+`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`,
+  price: s=>{ const nb=(f,v,l)=>`<span class="numbox"><input type="number" class="num-in" id="n-price-${f}" data-k="price" data-f="${f}" data-num="1" min="0" max="${PMAX}" step="any" inputmode="numeric" value="${v}" aria-label="${l}"><span class="unit">€</span></span>`;
+    return `<div class="dual" id="dual-price" style="--a:${s.min/PMAX*100}%;--b:${s.val/PMAX*100}%"><div class="dual-track"></div>`
+     +`<input type="range" id="r-price-min" data-k="price" data-f="min" min="0" max="${PMAX}" step="500" value="${s.min}" aria-label="Prix minimum (curseur)">`
+     +`<input type="range" id="r-price-val" data-k="price" data-f="val" min="0" max="${PMAX}" step="500" value="${s.val}" aria-label="Prix maximum (curseur)"></div>`
+     +`<div class="dual-nums"><label>De ${nb('min',s.min,'Prix minimum')}</label><label>à ${nb('val',s.val,'Prix maximum')}</label></div>`
+     +`<p class="hint">Fourchette de prix catalogue. Laissez le minimum à 0 pour ne fixer qu'un plafond. Au-dessus du maximum, la note tombe à 0 dès 15&nbsp;% de dépassement ; sous le minimum, elle baisse plus doucement (0 à 30&nbsp;% en dessous).</p>`; },
 };
 
 function settingsBlock(){ return `
@@ -412,11 +418,16 @@ form.addEventListener('input',e=>{
     const nb=document.getElementById(`n-${k}-${f}`); if(nb) nb.value=v; if(k==='price') fixPrice(f); update(); }
 });
 function rerenderCrit(){ renderForm(); }
-// fourchette de prix : le minimum reste sous le maximum
-function fixPrice(f){ const s=S.price; if(!(s.min>0) || s.min<s.val) return;
-  const other = f==='min' ? 'val' : 'min';
-  if(f==='min') s.val=s.min+1000; else s.min=Math.max(0,s.val-1000);
-  const v=s[other]; const sl=document.getElementById(`r-price-${other}`), nb=document.getElementById(`n-price-${other}`); if(sl) sl.value=v; if(nb) nb.value=v; }
+// en quittant une case de prix, on y réaffiche la valeur retenue (bornée à 0–150 000 €)
+form.addEventListener('change',e=>{ const t=e.target; if(t.dataset.k==='price' && t.dataset.num) t.value=S.price[t.dataset.f]; });
+// fourchette de prix sur un seul curseur à deux poignées : 0 à 150 000 €, le minimum reste sous le maximum
+function fixPrice(f){ const s=S.price;
+  s.min=Math.min(Math.max(0,s.min),PMAX-PGAP); s.val=Math.min(Math.max(PGAP,s.val),PMAX);
+  if(s.min>s.val-PGAP){ if(f==='min') s.min=s.val-PGAP; else s.val=Math.min(PMAX,s.min+PGAP); }
+  ['min','val'].forEach(k=>{ const sl=document.getElementById(`r-price-${k}`), nb=document.getElementById(`n-price-${k}`);
+    if(sl && +sl.value!==s[k]) sl.value=s[k]; if(nb && +nb.value!==s[k] && document.activeElement!==nb) nb.value=s[k]; });
+  const d=document.getElementById('dual-price'); if(d){ d.style.setProperty('--a',s.min/PMAX*100+'%'); d.style.setProperty('--b',s.val/PMAX*100+'%');
+    document.getElementById('r-price-min').style.zIndex = s.min>PMAX*0.9 ? 3 : 2; } }
 const COPY_BTN = `<button type="button" class="restart ghost" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copier le résumé</button>`;
 const RESTART_BTN = `<button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Recommencer</button>`;
 let undoState=null;
