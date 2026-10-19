@@ -97,6 +97,7 @@ function avisBlock(c, cls=''){ const a=avisOf(c); if(!a) return '';
 const avisShort = c=>{ const a=avisOf(c); return a?`<p class="avis-mini"><b>Notre avis</b> ${esc(a.v)}</p>`:''; };
 const fmt = (n,d=0)=> n==null ? '—' : n.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const eur = n => n==null ? 'Prix n.c.' : fmt(n)+'\u00a0€';
+const mlTag = c=> c.ml ? `<small class="mlp">+ ${eur(c.ml)} de malus</small>` : '';
 
 /* ---------- Référentiels ---------- */
 const ENERGY = {ess:'Essence',essm:'Essence micro-hybride',die:'Diesel',diem:'Diesel micro-hybride',hev:'Hybride',phev:'Hybride rechargeable',ev:'Électrique',gpl:'Essence + GPL',h2:'Hydrogène'};
@@ -532,7 +533,7 @@ function openVersions(key){ const l=VERS.get(key)||[]; if(!l.length) return; con
   sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${l.length} versions</div><h2 id="cmp-title">${brandFlag(c0.b)} ${c0.b} ${c0.m}</h2><div class="c-ver">Toutes les versions qui passent vos filtres, de la mieux notée à la moins bien notée.</div><div class="sheet-site">${siteBtn(c0,true)}</div></div><button type="button" class="x" data-close>Fermer</button></div>
     <div class="vlist">${l.map(r=>{ const c=r.car; return `<div class="vrow"><span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
       <div style="min-width:0"><div class="nm">${c.v}</div><div class="mini">${wpSpan(r)}<span>${ENERGY[c.e]}</span><span>${c.hp} ch</span><span>${c.bx==='A'?'Auto':'Manuelle'}</span>${c.e==='ev'&&c.aut?`<span>${c.aut} km</span>`:(c.l!=null?`<span>${fmt(c.l,1)} L/100</span>`:'')}</div></div>
-      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>${cmpBtn(c)}</div>`; }).join('')}</div>`;
+      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}${mlTag(c)}`}</span>${cmpBtn(c)}</div>`; }).join('')}</div>`;
   const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
 document.addEventListener('click',e=>{ const b=e.target.closest('[data-vers]'); if(b){ e.stopPropagation(); openVersions(b.dataset.vers); } });
 /* Résumé à copier */
@@ -693,7 +694,7 @@ function renderList(){
       <div class="psil${photoOf(c)?' has-ph':''}">${picFor(c)}</div>
       <div><h3>${brandFlag(c.b)} ${c.b} ${c.m}</h3><div class="pver">${verLine(c)}</div></div>
       ${badges(r)}
-      <div class="pfoot"><span class="pr num" style="text-align:left">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
+      <div class="pfoot"><span class="pr num" style="text-align:left">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}${mlTag(c)}`}</span>
         <span class="score num" style="${scoreStyle(r.score)};padding:6px 14px">${r.score}<small>/100</small></span></div>
       <div class="pact"><button type="button" class="fiche-btn" data-fiche="${idx}">Voir le détail</button>${cmpBtn(c)}</div>
     </article>`; }).join('');
@@ -705,7 +706,7 @@ function renderList(){
       <span class="rmain"><span class="nm">${brandFlag(c.b)} ${c.b} ${c.m}</span>
         <span class="rver">${verLine(c)}</span>
         ${(()=>{ const w=weakPoint(r); const x=[]; if(w) x.push(`<span class="wp ${w.ok?'ok':''}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`); if(eligibleAid(c)) x.push('<span class="aidt">Éligible aux aides</span>'); if(c.end) x.push(`<span class="warn-t">Fin de série ${c.end}</span>`); if(SOON(c)) x.push(`<span class="warn-t">Arrive en ${c.y}</span>`); return x.length?`<span class="rflags">${x.join('')}</span>`:''; })()}</span>
-      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}`}</span>
+      <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}${mlTag(c)}`}</span>
       <span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
     </button><span class="row-act">${cmpBtn(c)}</span></div><div class="detail" hidden></div></div>`; }).join('');
   document.getElementById('more').hidden = lastList.length<=shown+3;
@@ -713,7 +714,7 @@ function renderList(){
 /* Fiche détaillée (podium) dans une fenêtre */
 function openFiche(r){ const c=r.car; lastFocus=document.activeElement;
   const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
-  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${r.rank}e place · ${r.score}/100</div><h2 id="cmp-title">${brandFlag(c.b)} ${c.b} ${c.m}</h2><div class="c-ver">${c.v} · ${c.p==null?'prix n.c.':'à partir de '+eur(c.p)}</div></div><button type="button" class="x" data-close>Fermer</button></div>
+  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${r.rank}e place · ${r.score}/100</div><h2 id="cmp-title">${brandFlag(c.b)} ${c.b} ${c.m}</h2><div class="c-ver">${c.v} · ${c.p==null?'prix n.c.':'à partir de '+eur(c.p)+(c.ml?' + '+eur(c.ml)+' de malus':'')}</div></div><button type="button" class="x" data-close>Fermer</button></div>
     ${actions(c,true)}${badges(r)}${statTiles(c)}${avisLead(c)}
     <div class="folds">${whyScore(r,true)}${avisFull(c)}${specsFold(c)}</div>`;
   const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
