@@ -14,8 +14,8 @@ def _link(m):
     href = m.group(1)
     if href == own: return 'href="#"'
     return f'href="{BASE}{href}" target="_blank" rel="noopener"'
-h = re.sub(r'href="((?:index|comparateur|marques|methode|mentions-legales)\.html(?:#[^"]*)?)"', _link, h)
-h = re.sub(r'href="(modeles/[a-z0-9-]+\.html)"', _link, h)
+h = re.sub(r'href="((?:index|comparateur|marques|selections|methode|mentions-legales)\.html(?:#[^"]*)?)"', _link, h)
+h = re.sub(r'href="((?:modeles|selections)/[a-z0-9-]+\.html)"', _link, h)
 h = h.replace("const ficheUrl = c=> 'modeles/'", f"const ficheUrl = c=> '{BASE}modeles/'")
 h = h.replace('<a class="fiche-link" href="${ficheUrl(c)}">', '<a class="fiche-link" href="${ficheUrl(c)}" target="_blank" rel="noopener">')
 # Photos : intégrées dans la page (data URI) si le dossier assets/photos est à côté, sinon chargées depuis le site

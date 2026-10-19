@@ -273,13 +273,18 @@ const CRITS = [
  {id:'aut', name:'Autonomie électrique', short:'Autonomie élec.',
   score(c,s){ if(!c.plug) return [0,'sans batterie rechargeable']; return c.aut==null?[UNKNOWN,'n.c.']:[atLeast(c.aut,s.val,.5,.5), c.aut+' km']; }},
  {id:'chg', name:'Puissance de recharge', short:'Recharge',
-  score(c,s){ if(!c.plug) return [0,'sans recharge']; return c.kw==null?[UNKNOWN,'n.c.']:[atLeast(c.kw,s.val,.6,1), fmt(c.kw,c.kw%1?1:0)+' kW ('+(c.rt||'')+')']; }},
+  score(c,s){ if(!c.plug) return [0,'sans recharge']; const t=c.t80?' · 10-80 % en '+fmt(c.t80)+' min':'';
+    return c.kw==null?[UNKNOWN,'n.c.'+t]:[atLeast(c.kw,s.val,.6,1), fmt(c.kw,c.kw%1?1:0)+' kW ('+(c.rt||'')+')'+t]; }},
  {id:'box', name:'Boîte de vitesses', short:'Boîte',
   score(c,s){ return [c.bx===s.val?1:0, c.bx==='A'?'Automatique':'Manuelle ('+c.bxl.replace('BVM','')+' rapports)']; }},
  {id:'trans', name:'Transmission', short:'Transmission',
   score(c,s){ const awd=c.tr==='AWD'; return [s.val==='awd' ? (awd?1:0) : (awd?.6:1), TR[c.tr]||'n.c.']; }},
  {id:'trunk', name:'Volume de coffre', short:'Coffre',
-  score(c,s){ return c.tk==null?[UNKNOWN,'n.c.']:[atLeast(c.tk,s.val,.35,.4), c.tk+' L']; }},
+  score(c,s){ let v = c.tk==null ? UNKNOWN : atLeast(c.tk,s.val,.35,.4);
+    const lab = (c.tk==null?'n.c.':c.tk+' L')+(c.fk?' + coffre avant':'');
+    // case « coffre avant » : sans frunk, la note du coffre est plafonnée (note partielle) ; frunk inconnu : note moyenne au mieux
+    if(s.fk){ if(c.fk===0) v=Math.min(v,.4); else if(c.fk==null) v=Math.min(v,UNKNOWN); }
+    return [v, lab]; }},
  {id:'ncap', name:'Étoiles Euro NCAP', short:'Euro NCAP',
   score(c,s){ if(c.nc==null) return [UNKNOWN,'non testée'];
     const v=c.nc,t=s.val; return [v>=t?(t>=5?1:BASE+(1-BASE)*(v-t)/(5-t)):BASE*Math.max(0,1-(t-v)/2), '★'.repeat(v)+' '+v+'/5']; }},
@@ -298,13 +303,32 @@ CRITS.sort((x,y)=>ORDER.indexOf(x.id)-ORDER.indexOf(y.id));
 const BLANK = ()=>({
   moto:{on:false,w:2,val:new Set()}, body:{on:false,w:2,val:new Set()}, seats:{on:false,w:2,val:'le5'}, power:{on:false,w:2,min:100,max:200},
   cost:{on:false,w:2,val:1500}, aut:{on:false,w:2,val:350}, chg:{on:false,w:1,val:100},
-  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,min:0,val:40000,malus:true}
+  box:{on:false,w:2,val:'A'}, trans:{on:false,w:2,val:'awd'}, brand:{on:false,mode:'only',val:new Set()}, aid:{on:false}, trunk:{on:false,w:2,val:450,fk:false}, ncap:{on:false,w:2,val:4}, price:{on:false,w:2,min:0,val:40000,malus:true}
 });
 const EXAMPLE = ()=>{ const s=BLANK(); const set=(k,o)=>Object.assign(s[k],{on:true},o);
   set('price',{w:3,val:32000}); set('body',{w:3,val:new Set(['Citadine'])}); set('seats',{w:1,val:'le5'}); set('moto',{w:3,val:new Set(['ev'])});
   set('power',{w:2,min:150,max:200}); set('aut',{w:2,val:400}); set('chg',{w:2,val:100}); set('trunk',{w:2,val:270}); set('ncap',{w:1,val:4});
   return s; };
-let S = /[?&]exemple\b/.test(location.search) ? EXAMPLE() : BLANK();
+/* ---------- Lien de partage : les critères voyagent dans l'adresse (#c=…) ---------- */
+const b64e = str=> btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const b64d = str=> decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
+function encodeState(){ const o={};
+  Object.entries(S).forEach(([k,s])=>{ if(!s.on) return; const x={}; Object.entries(s).forEach(([f,v])=>{ if(f!=='on') x[f]= v instanceof Set ? [...v] : v; }); o[k]=x; });
+  const om=document.getElementById('opt-model'), os=document.getElementById('opt-strict');
+  return b64e(JSON.stringify({s:o, e:E, o:{m:om?om.checked:true, st:os?os.checked:false}})); }
+let SHARED_OPTS=null;
+function decodeState(str){ try{ const j=JSON.parse(b64d(str)), s=BLANK();
+    Object.entries(j.s||{}).forEach(([k,x])=>{ if(!s[k]) return; s[k].on=true;
+      Object.entries(x).forEach(([f,v])=>{ if(f in s[k]) s[k][f] = (s[k][f] instanceof Set) ? new Set(v) : v; }); });
+    if(j.e) Object.keys(E).forEach(k=>{ if(k in j.e) E[k]=j.e[k]; });
+    SHARED_OPTS=j.o||null; return s; } catch(err){ return null; } }
+const HASH_S = /^#c=/.test(location.hash) ? decodeState(location.hash.slice(3)) : null;
+let S = HASH_S || (/[?&]exemple\b/.test(location.search) ? EXAMPLE() : BLANK());
+let urlTimer=null;
+function syncURL(){ clearTimeout(urlTimer); urlTimer=setTimeout(()=>{ try{
+    const url = activeCount() ? '#c='+encodeState() : location.pathname+location.search;
+    history.replaceState(null,'',url); }catch(err){} },300); }
+function shareURL(){ return location.href.split('#')[0].replace(/[?&]exemple\b/,'')+'#c='+encodeState(); }
 
 /* ---------- Formulaire ---------- */
 const W_LABELS = [[1,'Secondaire'],[2,'Important'],[3,'Impératif']];
@@ -329,11 +353,13 @@ const CONTROL = {
   seats: s=>seg('seats','val',[['le5','5 places ou moins'],['gt5','Plus de 5 places']],s.val)+`<p class="hint">Avec « 5 places ou moins », un 7 places reste possible (note partielle). Avec « Plus de 5 places », seuls les 7 places conviennent.</p>`,
   cost: s=>range('cost','val',300,4000,50,s.val,'€/an')+`<p class="hint">Budget maximum de carburant ou d'électricité par an, selon le kilométrage et les prix ci-dessous.</p>`,
   aut: s=>range('aut','val',30,700,10,s.val,'km')+`<p class="hint">Autonomie WLTP mixte minimale annoncée par le constructeur. Concerne les électriques et hybrides rechargeables.</p>`,
-  chg: s=>range('chg','val',7,300,1,s.val,'kW')+`<p class="hint">Puissance maximale acceptée par la voiture (borne rapide DC si disponible).</p>`,
+  chg: s=>range('chg','val',7,300,1,s.val,'kW')+`<p class="hint">Puissance maximale acceptée par la voiture (borne rapide DC si disponible). Le temps de recharge de 10 à 80 %, plus parlant, est affiché à côté quand il est connu ; il comptera dans la note quand il sera renseigné pour toutes les voitures.</p>`,
   power: s=>dualHTML('power',s)+`<p class="hint">De 50 à 1 000 ch, par pas de 10 ch. Poussez la poignée de droite au bout (ou videz la case) pour « sans limite ». Une voiture un peu en dehors de la fourchette obtient une note partielle.</p>`,
   box: s=>seg('box','val',[['A','Automatique'],['M','Manuelle']],s.val),
   trans: s=>seg('trans','val',[['awd','4 roues motrices'],['2wd','2 roues motrices']],s.val)+`<p class="hint">« 2 roues motrices » regroupe traction et propulsion. Une 4 roues motrices y garde une note partielle.</p>`,
-  trunk: s=>range('trunk','val',100,800,10,s.val,'L')+`<p class="hint">Volume minimum, banquette en place.</p>`,
+  trunk: s=>range('trunk','val',100,800,10,s.val,'L')
+     +`<label class="chk"><input type="checkbox" data-k="trunk" data-chk="fk" ${s.fk?'checked':''}> Avec coffre avant (frunk)</label>`
+     +`<p class="hint">Volume minimum, banquette en place. Cochez « coffre avant » pour privilégier les voitures qui en ont un sous le capot : les autres gardent une note partielle.</p>`,
   ncap: s=>`<div class="stars" role="group" aria-label="Étoiles minimum">${[1,2,3,4,5].map(n=>`<button type="button" data-k="ncap" data-star="${n}" class="${n<=s.val?'on':''}" aria-label="${n} étoile${n>1?'s':''} minimum">★</button>`).join('')}</div><p class="hint">Minimum ${s.val} étoile${s.val>1?'s':''}. Les modèles non testés reçoivent une note moyenne.</p>`,
   price: s=>dualHTML('price',s)
      +`<label class="chk"><input type="checkbox" data-k="price" data-chk="malus" ${s.malus!==false?'checked':''}> Inclure le malus 2026 (CO₂ et poids)</label>`
@@ -441,6 +467,7 @@ function fixDual(k,f,typing){ const d=DUAL[k], s=S[k], A=d.a, B=d.b;
   const el=document.getElementById('dual-'+k); if(el){ el.style.setProperty('--a',dPos(d,s[A])+'%'); el.style.setProperty('--b',dPos(d,dSl(d,B,s))+'%');
     document.getElementById(`r-${k}-${A}`).style.zIndex = dPos(d,s[A])>90 ? 3 : 2; } }
 const COPY_BTN = `<button type="button" class="restart ghost" data-copy><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copier le résumé</button>`;
+const LINK_BTN = `<button type="button" class="restart ghost" data-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Copier le lien</button>`;
 const RESTART_BTN = `<button type="button" class="restart" data-restart><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Recommencer</button>`;
 let undoState=null;
 function restart(move=true){ undoState={S:structuredClone(S), ex:!document.getElementById('example-note').hidden};
@@ -512,7 +539,7 @@ function weakPoint(r){ if(!r.parts.length) return null;
   if(p.v===UNKNOWN && /n\.c\.|non testée/.test(p.txt)) return {txt: p.cr.id==='ncap'?'Non testée Euro NCAP':'Donnée manquante ('+p.cr.short.toLowerCase()+')'};
   const M={ price:()=> (s.min>0 && c.p<s.min) ? (soft?'Un peu sous votre prix minimum':'Sous votre prix minimum') : (soft?'Un peu au-dessus du budget':'Au-dessus du budget'),
     cost:()=> soft?'Énergie un peu chère à l’usage':'Énergie chère à l’usage',
-    trunk:()=> soft?'Coffre un peu juste':'Coffre trop petit',
+    trunk:()=> (s.fk && c.fk===0 && (c.tk==null || c.tk>=s.val)) ? 'Pas de coffre avant' : (soft?'Coffre un peu juste':'Coffre trop petit'),
     aut:()=> c.plug?(soft?'Autonomie un peu juste':'Autonomie insuffisante'):'Pas de batterie rechargeable',
     chg:()=> c.plug?(soft?'Recharge un peu lente':'Recharge lente'):'Pas de recharge',
     ncap:()=> 'Moins d’étoiles Euro NCAP que souhaité',
@@ -550,7 +577,7 @@ function summaryText(){ const L=[];
       case 'chg': v='recharge minimum '+s.val+' kW'; break;
       case 'box': v=s.val==='A'?'boîte automatique':'boîte manuelle'; break;
       case 'trans': v=s.val==='awd'?'4 roues motrices':'2 roues motrices'; break;
-      case 'trunk': v='coffre minimum '+s.val+' L'; break;
+      case 'trunk': v='coffre minimum '+s.val+' L'+(s.fk?' avec coffre avant':''); break;
       case 'ncap': v='Euro NCAP '+s.val+' étoiles minimum'; break;
     }
     L.push(v+(s.w===3?' (impératif)':'')); });
@@ -558,7 +585,7 @@ function summaryText(){ const L=[];
   const B=S.brand; if(B.on && B.val.size) L.push((B.mode==='only'?'marques : ':'sans : ')+[...B.val].join(', '));
   const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.v} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
   const w=lastList[0]&&siteUrl(lastList[0].car)?`\n\nSur le site officiel : ${siteUrl(lastList[0].car)}`:'';
-  return `Mioto, le comparateur de voitures neuves selon vos critères\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}`; }
+  return `Mioto, le comparateur de voitures neuves selon vos critères\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}\n\nVoir ce classement sur Mioto : ${shareURL()}`; }
 function toast(msg,undo){ const t=document.getElementById('toast'); t.innerHTML=''; const s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
   if(undo){ const b=document.createElement('button'); b.type='button'; b.textContent='Annuler'; b.onclick=()=>{ t.hidden=true; undo(); }; t.appendChild(b); }
   t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>{t.hidden=true;}, undo?6000:2600); }
@@ -567,6 +594,8 @@ function copyFallback(txt){ lastFocus=document.activeElement; const sh=document.
     <p class="hint" style="display:block;margin-bottom:8px">La copie automatique n'est pas disponible ici : le texte est sélectionné, copiez-le avec Ctrl+C (ou un appui long sur mobile).</p>
     <textarea class="sumtxt" readonly rows="9">${txt.replace(/</g,'&lt;')}</textarea>`;
   const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; const ta=sh.querySelector('textarea'); ta.focus(); ta.select(); }
+document.addEventListener('click',e=>{ if(!e.target.closest('[data-link]')) return; const url=shareURL();
+  try{ navigator.clipboard.writeText(url).then(()=>toast('Lien copié : il ouvre ce classement avec vos critères'),()=>copyFallback(url)); }catch(err){ copyFallback(url); } });
 document.addEventListener('click',e=>{ if(!e.target.closest('[data-copy]')) return; const txt=summaryText();
   try{ navigator.clipboard.writeText(txt).then(()=>toast('Résumé copié : collez-le où vous voulez'),()=>copyFallback(txt)); }catch(err){ copyFallback(txt); } });
 const scoreStyle = sc=> `background:${color(sc)}`+(sc>=60&&sc<80?';color:var(--s60-ink)':'');
@@ -598,9 +627,9 @@ const specs = c=>{ const rows=[
   ['Conso. WLTP',c.l!=null?fmt(c.l,1)+' L/100 km':null],['Conso. élec.',c.kwh!=null?fmt(c.kwh,1)+' kWh/100 km':null],
   ['Coût énergie',energyCost(c)!=null?fmtCost(energyCost(c))+' · '+fuelNote(c)+' · '+fmt(E.km)+' km':null],
   ['CO₂',c.co2!=null?c.co2+' g/km · classe '+c.cls:null],['Batterie',c.bat?fmt(c.bat,1)+' kWh':null],
-  ['Autonomie élec.',c.aut?c.aut+' km':null],['Recharge max.',c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null],
+  ['Autonomie élec.',c.aut?c.aut+' km':null],['Recharge max.',c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null],['Recharge 10-80 %',c.t80?fmt(c.t80)+' min':null],
   ['Boîte',c.bxl],['Transmission',TR[c.tr]],['Places / portes',c.pl+' / '+c.dr],['Longueur',c.len?fmt(c.len,2)+' m':null],
-  ['Poids à vide',c.w?fmt(c.w)+' kg':null],['Coffre',c.tk?c.tk+' L':null],['Euro NCAP',c.nc?c.nc+' étoiles':'non testée'],
+  ['Poids à vide',c.w?fmt(c.w)+' kg':null],['Coffre',c.tk?c.tk+' L':null],['Coffre avant',c.fk==null?null:(c.fk?'oui':'non')],['Euro NCAP',c.nc?c.nc+' étoiles':'non testée'],
   ["Crit'Air",c.ca!=null?String(c.ca):null],['Commercialisée depuis',c.y?String(c.y):null],['Fin de commercialisation',c.end?String(c.end):null],
   ['Aides à l\'achat',c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],['Prix',c.p==null?'n.c.':'à partir de '+eur(c.p)],['Malus 2026',c.ml?eur(c.ml)+' (estimation)':(c.p==null?null:'aucun')]];
   return `<dl class="specs">${rows.filter(r=>r[1]).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`; };
@@ -640,7 +669,7 @@ const weightNote = ()=>{ const on=CRITS.filter(isActive); return on.length?'Pond
 
 let shown=20, lastList=[];
 function update(){
-  syncEv(); updateCount();
+  syncEv(); updateCount(); syncURL();
   const opts={model:document.getElementById('opt-model').checked, strict:document.getElementById('opt-strict').checked};
   let res=CARS.map(evaluate);
   const active=res.length && res[0].parts.length>0;
@@ -666,7 +695,7 @@ function update(){
   }
   const top=res[0], c=top.car;
   document.getElementById('restart-end').hidden=false;
-  best.innerHTML=`<div class="reveal-row"><p class="reveal">Et votre voiture <em>idéale</em> est…</p><div class="rr-act">${COPY_BTN}${RESTART_BTN}</div></div><article class="best">
+  best.innerHTML=`<div class="reveal-row"><p class="reveal">Et votre voiture <em>idéale</em> est…</p><div class="rr-act">${LINK_BTN}${COPY_BTN}${RESTART_BTN}</div></div><article class="best">
     <div class="gauge-pane gauge">${medal(1,48)}<div class="medal">N° 1 sur ${fmt(res.length)} ${opts.model?'modèles':'versions'}</div>${gauge(top.score)}<div class="verdict" style="color:${color(top.score)}">${verdict(top.score)}</div></div>
     <div class="best-body">
       ${photoOf(c)?`<figure class="best-photo"><img src="${PHOTO_BASE}${photoOf(c).f}" alt="${c.b} ${c.m}" decoding="async"><figcaption>${photoOf(c).c}</figcaption></figure>`:`<div class="best-sil">${silFor(c)}</div>`}
@@ -767,12 +796,14 @@ const SPEC_ROWS = [
   ['Autonomie élec.', c=>c.aut, c=>c.aut?c.aut+' km':null, 'hi'],
   ['Batterie', c=>c.bat, c=>c.bat?fmt(c.bat,1)+' kWh':null, 'hi'],
   ['Recharge max.', c=>c.kw, c=>c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null, 'hi'],
+  ['Recharge 10-80 %', c=>c.t80, c=>c.t80?fmt(c.t80)+' min':null, 'lo'],
   ['Boîte', null, c=>c.bx==='A'?'Automatique':'Manuelle '+c.bxl.replace('BVM','')+' rapports'],
   ['Transmission', null, c=>TR[c.tr]],
   ['Places / portes', null, c=>c.pl+' / '+c.dr],
   ['Longueur', null, c=>c.len?fmt(c.len,2)+' m':null],
   ['Poids à vide', c=>c.w, c=>c.w?fmt(c.w)+' kg':null, 'lo'],
   ['Coffre', c=>c.tk, c=>c.tk?c.tk+' L':null, 'hi'],
+  ['Coffre avant', c=>c.fk==null?null:c.fk, c=>c.fk==null?null:(c.fk?'oui':'non'), 'hi'],
   ['Euro NCAP', c=>c.nc, c=>c.nc?'★'.repeat(c.nc)+' '+c.nc+'/5':'non testée', 'hi'],
   ["Crit'Air", c=>c.ca, c=>c.ca!=null?String(c.ca):null, 'lo'],
   ['Commercialisée depuis', null, c=>c.y?String(c.y):null],
@@ -834,6 +865,10 @@ document.getElementById('stats').innerHTML=`<p class="pitch pitch-sm"><b class="
 { const e=document.getElementById('nb-marques'); if(e) e.textContent=brands.size; }
 
 
+window.addEventListener('hashchange',()=>{ if(!/^#c=/.test(location.hash)) return; const st=decodeState(location.hash.slice(3)); if(!st) return; S=st;
+  if(SHARED_OPTS){ const om=document.getElementById('opt-model'), os=document.getElementById('opt-strict'); if(om) om.checked=!!SHARED_OPTS.m; if(os) os.checked=!!SHARED_OPTS.st; }
+  hideExample(); renderForm(); update(); });
+if(SHARED_OPTS){ const om=document.getElementById('opt-model'), os=document.getElementById('opt-strict'); if(om) om.checked=!!SHARED_OPTS.m; if(os) os.checked=!!SHARED_OPTS.st; }
 renderForm(); update();
 })();
 </script>

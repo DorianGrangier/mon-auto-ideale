@@ -91,7 +91,7 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236620F0'/%3E"
            "%3Cpath d='M7 24V9.5l9 9 9-9V24' fill='none' stroke='%23FFD60A' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
 def nav(p, cur):
-    items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('methode.html', 'Méthode')]
+    items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
     return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html" aria-label="Mioto, accueil"><span class="logo-name">Mi<b>oto</b></span><span class="logo-tag">comparateur de voitures neuves</span></a><div class="topnav-links">{links}</div></nav>'
 def head(title, desc, path, p, extra=''):
@@ -120,7 +120,7 @@ def head(title, desc, path, p, extra=''):
 def foot(p):
     return f'''<footer class="site-foot"><div class="wrap">
   <p><b>Mioto</b> — le comparateur indépendant de voitures neuves selon vos critères, pour les modèles vendus en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
-  <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
+  <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}selections.html">Sélections</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
   <p class="small">Prix « à partir de » indicatifs, tarifs constructeurs. Vérifiez les conditions auprès du constructeur ou d'un concessionnaire avant tout achat.</p>
 </div></footer>
 </body>
@@ -293,6 +293,11 @@ def build_home():
     </ol>
   </section>
 
+  <section class="home-sel" aria-labelledby="h-sel">
+    <h2 class="sec-title" id="h-sel">Nos sélections</h2>
+    <ul class="home-sel-list">{''.join(f'<li><a href="selections/{x["slug"]}.html">{_nb(esc(x["short"]))}</a></li>' for x in SELECTIONS)}</ul>
+  </section>
+
   <section class="card note-card" aria-labelledby="h-note">
     <div class="note-txt">
       <h2 id="h-note">Pourquoi une note sur 100 ?</h2>
@@ -398,8 +403,11 @@ def build_model(b, m, l):
           ('Portes', esc(' ou '.join(sorted({str(c.get('dr')) for c in l if c.get('dr')})))), ('Longueur', span([c.get('len') for c in l], 'm', 2)),
           ('Poids à vide', span([c.get('w') for c in l], 'kg')), ('0 à 100 km/h', span([c.get('acc') for c in l], 's', 1)),
           ("Crit'Air", esc(' ou '.join(sorted({str(c.get('ca')) for c in l if c.get('ca') is not None})) or '—')),
+          ('Coffre avant', esc(' ou '.join(sorted({'oui' if c['fk'] else 'non' for c in l if c.get('fk') is not None}, reverse=True)) or '—')),
+          ('Recharge 10-80 %', span([c.get('t80') for c in l if c.get('t80')], 'min')),
           ('Commercialisé depuis', esc(str(min(c['y'] for c in l if c.get('y'))) if any(c.get('y') for c in l) else '—')),
           ('Marque', f"{flag(b)} {esc(b)} · {esc(ADJ.get(NATION.get(b, ''), ''))}")]
+    dl = [(k, v) for k, v in dl if not (k in ('Coffre avant', 'Recharge 10-80 %') and v == '—')]
     if ev: dl.insert(5, ('Recharge rapide max.', span([c.get('kw') for c in ev], 'kW')))
     sims = similar(b, m, l)
     desc = (AVIS.get(f'{b}|{m}') or AVIS.get(f'{b}|{m}|ev') or {}).get('v') or f'{name} : prix, versions, autonomie, consommation et caractéristiques.'
@@ -457,6 +465,147 @@ def build_text(rel, title, h1, kicker, desc, content):
 METHODE = open(os.path.join(ROOT, 'src/methode.html'), encoding='utf-8').read()
 LEGAL = open(os.path.join(ROOT, 'src/mentions-legales.html'), encoding='utf-8').read()
 
+
+# --- sélections thématiques (pages fixes pour les moteurs de recherche) ------------------------------------------------
+# Chaque sélection est un jeu de critères passé au même moteur de notation que le comparateur ; une version par modèle,
+# les voitures qui ratent un critère impératif sont écartées. Le bouton « Affiner » ouvre le comparateur pré-rempli.
+import base64
+SELECTIONS = [
+  dict(slug='citadines-electriques-moins-de-25000-euros', t='Les meilleures citadines électriques à moins de 25 000 €', short='Citadines électriques à moins de 25 000 €',
+       intro="Petites électriques pour la ville et la périphérie : prix catalogue sous 25 000 €, autonomie d'au moins 250 km et bonne note de sécurité.",
+       crits=[('price', 3, {'val': 25000}), ('body', 3, {'val': ['Citadine']}), ('moto', 3, {'val': ['ev']}), ('aut', 2, {'val': 250}), ('ncap', 1, {'val': 4})]),
+  dict(slug='voitures-electriques-eligibles-aux-aides', t='Les meilleures voitures électriques éligibles aux aides', short='Électriques éligibles aux aides',
+       intro="Électriques ouvrant droit à la prime « coup de pouce » (ex-bonus écologique) : score environnemental obtenu, prix sous 47 000 € et poids sous 2,4 t.",
+       aid=True, filt=lambda c: eligible(c),
+       crits=[('moto', 3, {'val': ['ev']}), ('price', 2, {'val': 40000}), ('aut', 2, {'val': 400}), ('chg', 1, {'val': 100}), ('ncap', 1, {'val': 4})]),
+  dict(slug='suv-electriques-moins-de-40000-euros', t='Les meilleurs SUV électriques à moins de 40 000 €', short='SUV électriques à moins de 40 000 €',
+       intro="SUV compacts et familiaux 100 % électriques sous 40 000 €, avec au moins 400 km d'autonomie et un coffre logeable.",
+       crits=[('body', 3, {'val': ['SUV urbain', 'SUV']}), ('moto', 3, {'val': ['ev']}), ('price', 3, {'val': 40000}), ('aut', 2, {'val': 400}), ('trunk', 1, {'val': 400})]),
+  dict(slug='suv-hybrides-moins-de-35000-euros', t='Les meilleurs SUV hybrides à moins de 35 000 €', short='SUV hybrides à moins de 35 000 €',
+       intro="SUV hybrides non rechargeables (full hybrid) sous 35 000 €, malus 2026 compris, avec un coffre d'au moins 400 litres.",
+       crits=[('body', 3, {'val': ['SUV urbain', 'SUV']}), ('moto', 3, {'val': ['hev']}), ('price', 3, {'val': 35000}), ('trunk', 2, {'val': 400}), ('ncap', 1, {'val': 4})]),
+  dict(slug='voitures-familiales-moins-de-30000-euros', t='Les meilleures voitures familiales à moins de 30 000 €', short='Familiales à moins de 30 000 €',
+       intro="Toutes carrosseries confondues : un grand coffre (450 litres et plus), cinq étoiles Euro NCAP de préférence et un prix sous 30 000 €, malus compris.",
+       crits=[('trunk', 3, {'val': 450}), ('price', 3, {'val': 30000}), ('ncap', 2, {'val': 5}), ('seats', 1, {'val': 'le5'})]),
+  dict(slug='suv-7-places', t='Les meilleurs SUV 7 places', short='SUV 7 places',
+       intro="SUV à sept places pour les grandes familles, classés selon le prix (jusqu'à 50 000 €, malus compris), la sécurité et la boîte automatique.",
+       crits=[('seats', 3, {'val': 'gt5'}), ('body', 2, {'val': ['SUV']}), ('price', 2, {'val': 50000}), ('ncap', 1, {'val': 4}), ('box', 1, {'val': 'A'})]),
+  dict(slug='breaks-grand-coffre', t='Les meilleurs breaks à grand coffre', short='Breaks à grand coffre',
+       intro="Breaks d'au moins 600 litres de coffre pour les longs trajets et les vacances, classés aussi selon le prix et la sécurité.",
+       crits=[('body', 3, {'val': ['Break']}), ('trunk', 3, {'val': 600}), ('price', 2, {'val': 45000}), ('ncap', 1, {'val': 4})]),
+  dict(slug='voitures-electriques-grande-autonomie', t='Les voitures électriques avec la plus grande autonomie', short='Électriques à grande autonomie',
+       intro="Électriques capables d'au moins 550 km en cycle WLTP mixte, avec une recharge rapide d'au moins 150 kW, jusqu'à 60 000 €.",
+       crits=[('moto', 3, {'val': ['ev']}), ('aut', 3, {'val': 550}), ('chg', 2, {'val': 150}), ('price', 2, {'val': 60000})]),
+  dict(slug='voitures-electriques-recharge-rapide', t='Les voitures électriques qui rechargent le plus vite', short='Électriques à recharge rapide',
+       intro="Électriques acceptant au moins 200 kW sur borne rapide, avec une autonomie d'au moins 400 km.",
+       crits=[('moto', 3, {'val': ['ev']}), ('chg', 3, {'val': 200}), ('aut', 2, {'val': 400}), ('price', 1, {'val': 60000})]),
+  dict(slug='hybrides-rechargeables-grande-autonomie', t='Les hybrides rechargeables avec la plus grande autonomie électrique', short='Hybrides rechargeables à grande autonomie',
+       intro="Hybrides rechargeables capables d'au moins 80 km en électrique (WLTP), pour rouler au quotidien sans essence, jusqu'à 50 000 €.",
+       crits=[('moto', 3, {'val': ['phev']}), ('aut', 3, {'val': 80}), ('price', 2, {'val': 50000})]),
+  dict(slug='voitures-neuves-les-moins-cheres', t='Les voitures neuves les moins chères', short='Voitures neuves les moins chères',
+       intro="Les voitures neuves les plus abordables du marché français, malus 2026 compris, jusqu'à 20 000 € environ.",
+       crits=[('price', 3, {'val': 20000}), ('trunk', 1, {'val': 250})]),
+  dict(slug='voitures-automatiques-moins-de-25000-euros', t='Les meilleures voitures automatiques à moins de 25 000 €', short='Automatiques à moins de 25 000 €',
+       intro="Boîte automatique (ou électrique) sans se ruiner : prix sous 25 000 €, malus compris, avec une bonne note de sécurité.",
+       crits=[('box', 3, {'val': 'A'}), ('price', 3, {'val': 25000}), ('ncap', 1, {'val': 4}), ('trunk', 1, {'val': 300})]),
+  dict(slug='voitures-4-roues-motrices-moins-de-40000-euros', t='Les meilleures 4 roues motrices à moins de 40 000 €', short='4 roues motrices à moins de 40 000 €',
+       intro="Transmission intégrale pour la montagne, la neige ou les chemins, sous 40 000 €, malus compris.",
+       crits=[('trans', 3, {'val': 'awd'}), ('price', 3, {'val': 40000}), ('body', 2, {'val': ['SUV urbain', 'SUV', 'Tout-terrain']})]),
+  dict(slug='sportives-moins-de-50000-euros', t='Les meilleures sportives à moins de 50 000 €', short='Sportives à moins de 50 000 €',
+       intro="Coupés, cabriolets et sportives de 250 ch et plus sous 50 000 €, malus 2026 compris : le plaisir de conduire sans exploser le budget.",
+       filt=lambda c: 'SUV' not in c['c'],   # les SUV « coupés » ne sont pas des sportives
+       crits=[('body', 3, {'val': ['Sportive', 'Coupé', 'Cabriolet']}), ('power', 3, {'min': 250, 'max': 0}), ('price', 3, {'val': 50000})]),
+  dict(slug='voitures-sans-malus-2026', t='Les meilleures voitures thermiques et hybrides sans malus en 2026', short='Thermiques et hybrides sans malus',
+       intro="Voitures essence, diesel et hybrides qui échappent au malus CO₂ et au malus au poids 2026, classées selon le prix et le coffre.",
+       filt=lambda c: c['e'] not in ('ev', 'h2') and not c.get('ml'),
+       crits=[('price', 2, {'val': 25000}), ('trunk', 1, {'val': 350}), ('ncap', 1, {'val': 4})]),
+]
+UNK = .5
+def _sel_score(c, crits):
+    num = den = 0; parts = []; fail = False
+    for k, w, o in crits:
+        r = _crit(c, k, o)
+        if r is None: val, sc = 'n.c.', UNK
+        else: _, _, val, sc, _ = r
+        num += sc * w; den += w; parts.append((k, val, sc))
+        if w == 3 and sc < .5: fail = True
+    return num / den, parts, fail
+def selection_rank(sel):
+    best = {}
+    for c in CARS:
+        if c.get('p') is None or (sel.get('filt') and not sel['filt'](c)): continue
+        sc, parts, fail = _sel_score(c, sel['crits'])
+        if fail: continue
+        tot = c['p'] + c.get('ml', 0); key = (c['b'], c['m'])
+        if key not in best or (sc, -tot) > (best[key][0], -best[key][3]): best[key] = (sc, c, parts, tot)
+    return sorted(best.values(), key=lambda x: (-x[0], x[3]))
+def sel_state(sel):
+    st = {}
+    for k, w, o in sel['crits']:
+        x = {'w': w}
+        if k == 'price': x.update({'min': 0, 'val': o['val'], 'malus': True})
+        elif k == 'power': x.update({'min': o['min'], 'max': o.get('max') or 0})
+        elif k == 'trunk': x.update({'val': o['val'], 'fk': False})
+        else: x['val'] = o['val']
+        st[k] = x
+    if sel.get('aid'): st['aid'] = {}
+    raw = json.dumps({'s': st, 'o': {'m': True, 'st': True}}, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+CRIT_TXT = {'price': lambda o: f"prix jusqu'à {eur(o['val'])}, malus compris", 'body': lambda o: ' ou '.join(o['val']),
+            'moto': lambda o: ' ou '.join(MOTO_LBL[u] for u in o['val']), 'aut': lambda o: f"autonomie d'au moins {fmt(o['val'])} km",
+            'chg': lambda o: f"recharge d'au moins {fmt(o['val'])} kW", 'trunk': lambda o: f"coffre d'au moins {fmt(o['val'])} L",
+            'ncap': lambda o: f"{o['val']} étoiles Euro NCAP ou plus", 'seats': lambda o: 'plus de 5 places' if o['val'] == 'gt5' else '5 places',
+            'box': lambda o: 'boîte automatique' if o['val'] == 'A' else 'boîte manuelle', 'trans': lambda o: '4 roues motrices' if o['val'] == 'awd' else '2 roues motrices',
+            'power': lambda o: f"{o['min']} ch minimum" + (f" et {o['max']} ch maximum" if o.get('max') else '')}
+def _first_sentence(t, n=170):
+    t = t.split('. ')[0].rstrip('.') + '.'
+    return t if len(t) <= n else t[:n - 1].rsplit(' ', 1)[0] + '…'
+def _nb(t): return re.sub(r'(\d) (\d{3})', '\\1\u202f\\2', t).replace(' €', '\u00a0€')
+def _pl(n, word): return f"{n} {word}{'s' if n > 1 else ''}"
+def build_selections():
+    p = '../'; cards = []; day = TODAY.strftime('%d/%m/%Y')
+    for sel in SELECTIONS:
+        L = selection_rank(sel); top = L[:10]
+        if not top: print('  sélection vide :', sel['slug']); continue
+        rel = f"selections/{sel['slug']}.html"
+        crit_li = ''.join(f"<li><b>{IMP[w]}</b> : {esc(CRIT_TXT[k](o))}</li>" for k, w, o in sel['crits'])
+        if sel.get('aid'): crit_li += "<li><b>Filtre</b> : éligible aux aides à l'achat</li>"
+        items = []
+        for i, (sc, c, parts, tot) in enumerate(top, 1):
+            s100 = _round(100 * sc); b, m = c['b'], c['m']
+            facts = ' · '.join(esc(str(v)) for k, v, _ in parts if k != 'price' and v != 'n.c.')
+            av = avis_for(b, m); verdict = _first_sentence(av[0][1]['v']) if av else ''
+            ml = f'<small class="mlp">+ {eur(c["ml"])} de malus</small>' if c.get('ml') else ''
+            aid = ' <span class="aidt">aides</span>' if eligible(c) else ''
+            items.append(
+                f'<li class="sel-item"><span class="sel-rank num">{i}</span><div class="sel-main">'
+                f'<a class="sel-name" href="{p}modeles/{mslug(b, m)}.html">{flag(b)} {esc(b)} {esc(m)}</a><span class="sel-ver">{esc(c["v"])}</span>'
+                + (f'<span class="sel-facts">{facts}</span>' if facts else '') + (f'<p class="sel-avis">{esc(verdict)}</p>' if verdict else '')
+                + f'</div><div class="sel-side"><span class="score num" style="background:{_col(s100)}">{s100}<small>/100</small></span>'
+                f'<span class="sel-pr num"><small>à partir de</small>{eur(c["p"])}{aid}{ml}</span></div></li>')
+        others = ''.join(f'<li><a href="{x["slug"]}.html">{_nb(esc(x["short"]))}</a></li>' for x in SELECTIONS if x is not sel)
+        desc = f"{sel['t']} : le classement Mioto des {len(top)} meilleurs modèles, avec une note sur 100, mis à jour le {day}."
+        body = (f'<div class="wrap page sel"><p class="sel-intro">{_nb(esc(sel["intro"]))} Classement calculé par le moteur de notation de Mioto : '
+                f'une note sur 100 par voiture, une version par modèle (la mieux notée), {_pl(len(L), "modèle")} en lice.</p>'
+                f'<div class="card sel-crits"><div><h2>Les critères de cette sélection</h2><ul>{crit_li}</ul></div>'
+                f'<div class="sel-cta"><a class="cta cta-main" href="{p}comparateur.html#c={sel_state(sel)}">Affiner avec mes critères</a>'
+                + ('<small>Le comparateur reprend ces critères, sans le filtre propre à cette page.</small>' if sel.get('filt') and not sel.get('aid') else '') + '</div></div>'
+                f'<ol class="sel-list">{"".join(items)}</ol>'
+                f'<p class="small">Prix « à partir de » de la version citée, tarifs constructeurs ; malus 2026 estimé. Données mises à jour le {day}.</p>'
+                f'<section class="sel-more"><h2 class="sec-title">Autres sélections</h2><ul>{others}</ul></section></div>')
+        write(rel, head(f"{sel['t']} | Mioto", desc, rel, p) + hero_small(p, 'selections.html', 'Sélection', _nb(esc(sel['t'])), f'Classement mis à jour le {day}') + body + foot(p))
+        w0 = top[0][1]
+        cards.append(f'<a class="sel-card" href="selections/{sel["slug"]}.html"><b>{_nb(esc(sel["short"]))}</b>'
+                     f'<span>N° 1 : {flag(w0["b"])} {esc(w0["b"])} {esc(w0["m"])}</span><small>{_pl(len(L), "modèle")} en lice</small></a>')
+    page = (head('Sélections : les meilleures voitures neuves par catégorie | Mioto',
+                 "Citadines électriques, SUV hybrides, familiales, 7 places, voitures sans malus… Les meilleures voitures neuves par catégorie selon la note Mioto.", 'selections.html', '')
+            + hero_small('', 'selections.html', 'Sélections', 'Les meilleures <span>par catégorie</span>',
+                         "Des classements prêts à l'emploi, calculés par le même moteur que le comparateur et mis à jour chaque jour.")
+            + f'<div class="wrap page"><div class="sel-grid">{"".join(cards)}</div><p class="small">Envie d\'un classement sur mesure ? '
+              f'<a href="comparateur.html">Lancez le comparateur</a> avec vos propres critères.</p></div>' + foot(''))
+    write('selections.html', page)
+    return [f"selections/{x['slug']}.html" for x in SELECTIONS]
+
 def main():
     if os.path.exists(OUT): shutil.rmtree(OUT)
     os.makedirs(OUT)
@@ -465,6 +614,7 @@ def main():
     build_home()
     for (b, m), l in MODELS.items(): build_model(b, m, l)
     build_brands()
+    sel_urls = build_selections()
     n = len(MODELS)
     build_text('methode.html', 'Méthode', 'Notre <span>méthode</span>', 'Comment ça marche', "Comment Mioto calcule la note sur 100, d'où viennent les données et comment sont rédigés les avis.",
                METHODE.replace('__N_MODELS__', str(n)).replace('__N_VERSIONS__', fmt(len(CARS))))
@@ -472,7 +622,7 @@ def main():
     p4 = SITE_URL or ''
     write('404.html', head('Page introuvable | Mioto', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
           + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour à l\'accueil</a> · <a href="{p4}comparateur.html">Comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
-    urls = ['', 'comparateur.html', 'marques.html', 'methode.html', 'mentions-legales.html'] + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
+    urls = ['', 'comparateur.html', 'marques.html', 'selections.html', 'methode.html', 'mentions-legales.html'] + sel_urls + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
     if SITE_URL:
         write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
               ''.join(f'  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY.isoformat()}</lastmod></url>\n' for u in urls) + '</urlset>\n')
