@@ -1,7 +1,7 @@
 """Copie autonome du comparateur pour l'aperçu Claude (artifact) : CSS en ligne, polices Google Fonts,
 liens vers les fiches et pages ouverts sur le site en ligne. Usage : python3 tools/artifact.py dist/index.html sortie.html"""
 import re, sys, os
-BASE = 'https://doriangrangier.github.io/mon-auto-ideale/'
+BASE = 'https://mioto-auto.fr/'
 src, out = sys.argv[1], sys.argv[2]
 h = open(src, encoding='utf-8').read()
 css = open(src.rsplit('/', 1)[0] + '/assets/site.css', encoding='utf-8').read()

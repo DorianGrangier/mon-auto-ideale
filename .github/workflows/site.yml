@@ -60,7 +60,7 @@ jobs:
       - name: Construire le site
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          export SITE_URL="${CUSTOM_DOMAIN_URL:-https://${OWNER}.github.io/${{ github.event.repository.name }}/}"
+          export SITE_URL="${CUSTOM_DOMAIN_URL:-https://mioto-auto.fr/}"   # domaine personnalisé (OVH), actif depuis le 20/10/2026
           python3 scripts/build_site.py dist
         env:
           CUSTOM_DOMAIN_URL: ${{ vars.SITE_URL }}

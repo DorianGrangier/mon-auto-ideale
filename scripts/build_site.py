@@ -3,7 +3,7 @@
 Usage : python3 scripts/build_site.py [dossier_sortie]
 Entrées : data/data.json (versions), data/avis.json (avis par modèle), data/meta.json (pays, drapeaux,
 sites constructeurs, liste des modèles éligibles aux aides, silhouettes), src/index.body.html, assets/.
-Variable d'environnement SITE_URL (ex. https://pseudo.github.io/mon-auto-ideale/) pour les liens absolus.
+Variable d'environnement SITE_URL (ex. https://mioto-auto.fr/) pour les liens absolus.
 """
 import json, math, os, re, shutil, sys, unicodedata, html, datetime
 
