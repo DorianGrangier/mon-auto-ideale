@@ -88,14 +88,18 @@ def avis_for(b, m):
 def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else None
 
 # --- gabarits communs ----------------------------------------------------------
-FAVICON = ("data:image/svg+xml," + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236620F0'/%3E"
-           "%3Cpath d='M7 24V9.5l9 9 9-9V24' fill='none' stroke='%23FFD60A' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+# Logo : les deux « o » sont des phares escamotables (fichiers sources dans assets/logo/).
+LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-jaune.svg'), encoding='utf-8').read().strip().replace(
+    '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="98" height="30" aria-hidden="true" focusable="false" ')
+HOME_LOGO = LOGO_SVG.replace('class="logo-svg" width="98" height="30"', 'class="home-logo-svg" width="294" height="90"')
 def nav(p, cur):
     items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
-    return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html" aria-label="Mioto, accueil"><span class="logo-name">Mi<b>oto</b></span><span class="logo-tag">comparateur de voitures neuves</span></a><div class="topnav-links">{links}</div></nav>'
+    return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html" aria-label="Mioto, accueil">{LOGO_SVG}<span class="logo-tag">comparateur de voitures neuves</span></a><div class="topnav-links">{links}</div></nav>'
 def head(title, desc, path, p, extra=''):
     canon = f'<link rel="canonical" href="{SITE_URL}{path}">\n<meta property="og:url" content="{SITE_URL}{path}">' if SITE_URL else ''
+    og_img = (f'\n<meta property="og:image" content="{SITE_URL}assets/og-image.png">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">'
+              f'\n<meta property="og:image:alt" content="Mioto, le comparateur de voitures neuves selon vos critères">\n<meta name="twitter:card" content="summary_large_image">') if SITE_URL else ''
     return f'''<!doctype html>
 <html lang="fr">
 <head>
@@ -108,9 +112,11 @@ def head(title, desc, path, p, extra=''):
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Mioto">
 <meta property="og:locale" content="fr_FR">
-{canon}
+{canon}{og_img}
 <meta name="theme-color" content="#6620F0">
-<link rel="icon" href="{FAVICON}">
+<link rel="icon" href="{p}assets/favicon.ico" sizes="48x48">
+<link rel="icon" href="{p}assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{p}assets/apple-touch-icon.png">
 <link rel="preload" href="{p}assets/fonts/outfit-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{p}assets/site.css">
 {extra}
@@ -272,7 +278,7 @@ def build_home():
   {nav(p, 'index.html')}
   <div class="home-in">
     <div class="kicker">Indépendant · sans publicité</div>
-    <h1>Mi<span>oto</span></h1>
+    <h1 class="home-logo">{HOME_LOGO}<span class="sr-only">Mioto</span></h1>
     <p class="home-slogan">Le comparateur de voitures neuves selon vos critères</p>
     <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur&nbsp;100</b> qui dit à quel point elle vous correspond.</p>
     <div class="home-ctas">
@@ -613,6 +619,7 @@ def main():
     if os.path.exists(OUT): shutil.rmtree(OUT)
     os.makedirs(OUT)
     shutil.copytree(os.path.join(ROOT, 'assets'), os.path.join(OUT, 'assets'))
+    shutil.copy(os.path.join(ROOT, 'assets', 'favicon.ico'), os.path.join(OUT, 'favicon.ico'))
     build_index()
     build_home()
     for (b, m), l in MODELS.items(): build_model(b, m, l)

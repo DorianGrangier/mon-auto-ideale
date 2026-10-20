@@ -447,7 +447,6 @@ details.fold > summary:hover{color:var(--accent)}
 a{color:var(--accent)}
 .topnav{max-width:1260px;margin:0 auto;padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:10px 20px;flex-wrap:wrap;position:relative;z-index:2}
 .topnav .logo{font-family:var(--f-display);font-stretch:var(--wd);font-weight:700;font-size:20px;text-transform:none;letter-spacing:-.005em;color:var(--hero-ink);text-decoration:none}
-.topnav .logo b{color:var(--road)}
 .topnav-links{display:flex;gap:4px 18px;flex-wrap:wrap}
 .topnav-links a{color:var(--hero-muted);text-decoration:none;font-weight:600;font-size:14.5px;padding:4px 0;border-bottom:2px solid transparent}
 .topnav-links a:hover,.topnav-links a[aria-current="page"]{color:var(--hero-ink);border-bottom-color:var(--road)}
@@ -611,7 +610,8 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .ex-dots button[aria-current]{background:var(--accent);width:22px;border-radius:99px}
 .ex-count{font-size:12.5px;color:var(--muted);min-width:38px;text-align:center}
 /* Nom Mioto : signature sous le logo et sous le titre de l'accueil */
-.topnav .logo{display:inline-flex;align-items:baseline;gap:10px}
+.topnav .logo{display:inline-flex;align-items:center;gap:12px}
+.topnav .logo .logo-svg{display:block;height:30px;width:auto;flex:none}
 .topnav .logo .logo-tag{font-family:var(--f-body,inherit);font-stretch:normal;font-weight:500;font-size:13px;letter-spacing:0;color:var(--hero-muted);opacity:.85}
 @media (max-width:720px){.topnav .logo .logo-tag{display:none}}
 .home-hero .home-slogan{font-family:var(--f-display);font-weight:600;font-size:clamp(20px,2.4vw,30px);line-height:1.15;color:var(--road);margin:10px 0 0!important;max-width:44ch}
@@ -701,3 +701,9 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .card.sel-crits{flex-direction:row;align-items:center;justify-content:space-between}
 @media (max-width:640px){.card.sel-crits{flex-direction:column;align-items:flex-start}}
 @media (max-width:640px){.card.sel-crits>div:first-child{flex:none}}
+
+/* logo : grand format sur l'accueil, texte du titre réservé aux lecteurs d'écran */
+.hero h1.home-logo{margin:14px 0 18px;line-height:0}
+.home-logo-svg{display:block;width:clamp(190px,26vw,300px);height:auto}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.topnav .logo .logo-svg{height:32px}
