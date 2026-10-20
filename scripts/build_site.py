@@ -89,7 +89,7 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 
 # --- gabarits communs ----------------------------------------------------------
 # Logo : les deux « o » sont des phares escamotables (fichiers sources dans assets/logo/).
-LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-jaune.svg'), encoding='utf-8').read().strip().replace(
+LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-blanc.svg'), encoding='utf-8').read().strip().replace(
     '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="98" height="30" aria-hidden="true" focusable="false" ')
 HOME_LOGO = LOGO_SVG.replace('class="logo-svg" width="98" height="30"', 'class="home-logo-svg" width="294" height="90"')
 def nav(p, cur):
