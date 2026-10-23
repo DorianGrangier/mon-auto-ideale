@@ -90,8 +90,7 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 # --- gabarits communs ----------------------------------------------------------
 # Logo : les deux « o » sont des phares escamotables (fichiers sources dans assets/logo/).
 LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-blanc.svg'), encoding='utf-8').read().strip().replace(
-    '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="98" height="30" aria-hidden="true" focusable="false" ')
-HOME_LOGO = LOGO_SVG.replace('class="logo-svg" width="98" height="30"', 'class="home-logo-svg" width="294" height="90"')
+    '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="101" height="30" aria-hidden="true" focusable="false" ')
 def nav(p, cur):
     items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
@@ -278,8 +277,7 @@ def build_home():
   {nav(p, 'index.html')}
   <div class="home-in">
     <div class="kicker">Indépendant · sans publicité</div>
-    <h1 class="home-logo">{HOME_LOGO}<span class="sr-only">Mioto</span></h1>
-    <p class="home-slogan">Le comparateur de voitures neuves selon vos critères</p>
+    <h1 class="home-title">Le comparateur de voitures neuves <span>selon vos critères</span></h1>
     <p class="home-lead">Vous savez ce qui compte pour vous : un budget, une taille, une autonomie, un grand coffre… Nous passons au crible les <b>{fmt(len(CARS))} versions</b> de <b>{n_models} modèles</b> vendus en France et donnons à chacune une <b>note sur&nbsp;100</b> qui dit à quel point elle vous correspond.</p>
     <div class="home-ctas">
       <a class="cta cta-main" href="{p}comparateur.html">Lancer le comparateur</a>
