@@ -707,3 +707,19 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .hero h1.home-title span{color:var(--road)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .topnav .logo .logo-svg{height:32px}
+/* correctifs mobile : la grille des marques (ordinateur) reste masquée sur téléphone, la note des versions n'est plus coupée */
+@media (max-width:760px){.jump.jump-desk{display:none}}
+.vrow{grid-template-columns:max-content minmax(0,1fr) auto auto}
+@media (max-width:640px){
+  .vrow{grid-template-columns:max-content minmax(0,1fr) auto}
+  .vrow .score{font-size:15px;padding:6px 9px}
+  .vrow .score small{font-size:9.5px}
+}
+.sheet-h > div{min-width:0}
+.sheet-h .x{flex:none}
+@media (max-width:480px){
+  .vrow{grid-template-columns:max-content minmax(0,1fr);align-items:start}
+  .vrow .score{margin-top:2px}
+  .vrow .pr{grid-column:2;grid-row:auto}
+  .vrow .cmp{grid-column:2;grid-row:auto;justify-self:start}
+}
