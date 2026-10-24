@@ -14,8 +14,9 @@ def _link(m):
     href = m.group(1)
     if href == own: return 'href="#"'
     return f'href="{BASE}{href}" target="_blank" rel="noopener"'
-h = re.sub(r'href="((?:index|comparateur|marques|selections|methode|mentions-legales)\.html(?:#[^"]*)?)"', _link, h)
+h = re.sub(r'href="((?:index|comparateur|face-a-face|marques|selections|methode|mentions-legales)\.html(?:#[^"]*)?)"', _link, h)
 h = re.sub(r'href="((?:modeles|selections)/[a-z0-9-]+\.html)"', _link, h)
+h = h.replace('href="face-a-face.html#f=', f'target="_blank" rel="noopener" href="{BASE}face-a-face.html#f=')
 h = re.sub(r'href="(assets/(?:favicon|apple-touch-icon)[^"]*)"', lambda m: f'href="{BASE}{m.group(1)}"', h)
 h = h.replace("const ficheUrl = c=> 'modeles/'", f"const ficheUrl = c=> '{BASE}modeles/'")
 h = h.replace('<a class="fiche-link" href="${ficheUrl(c)}">', '<a class="fiche-link" href="${ficheUrl(c)}" target="_blank" rel="noopener">')

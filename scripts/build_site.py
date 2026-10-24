@@ -6,6 +6,7 @@ sites constructeurs, liste des modèles éligibles aux aides, silhouettes), src/
 Variable d'environnement SITE_URL (ex. https://mioto-auto.fr/) pour les liens absolus.
 """
 import json, math, os, re, shutil, sys, unicodedata, html, datetime
+from urllib.parse import quote
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'dist')
@@ -92,7 +93,7 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-blanc.svg'), encoding='utf-8').read().strip().replace(
     '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="101" height="30" aria-hidden="true" focusable="false" ')
 def nav(p, cur):
-    items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
+    items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('face-a-face.html', 'Face à face'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
     return f'<nav class="topnav" aria-label="Navigation principale"><a class="logo" href="{p}index.html" aria-label="Mioto, accueil">{LOGO_SVG}<span class="logo-tag">comparateur de voitures neuves</span></a><div class="topnav-links">{links}</div></nav>'
 def head(title, desc, path, p, extra=''):
@@ -125,7 +126,7 @@ def head(title, desc, path, p, extra=''):
 def foot(p):
     return f'''<footer class="site-foot"><div class="wrap">
   <p><b>Mioto</b> — le comparateur indépendant de voitures neuves selon vos critères, pour les modèles vendus en France. Données mises à jour le {TODAY.strftime('%d/%m/%Y')}.</p>
-  <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}selections.html">Sélections</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
+  <p><a href="{p}index.html">Accueil</a> · <a href="{p}comparateur.html">Comparateur</a> · <a href="{p}face-a-face.html">Face à face</a> · <a href="{p}marques.html">Marques et modèles</a> · <a href="{p}selections.html">Sélections</a> · <a href="{p}methode.html">Méthode</a> · <a href="{p}mentions-legales.html">Mentions légales</a></p>
   <p class="small">Prix « à partir de » indicatifs, tarifs constructeurs. Vérifiez les conditions auprès du constructeur ou d'un concessionnaire avant tout achat.</p>
 </div></footer>
 </body>
@@ -152,6 +153,22 @@ def build_index():
     n_models, n_brands = len(MODELS), len({b for b, _ in MODELS})
     desc = f'Trouvez la voiture neuve qui vous correspond parmi {n_models} modèles de {n_brands} marques vendues en France : note sur 100 selon vos critères, avis et fiches détaillées.'
     write('comparateur.html', head('Le comparateur | Mioto', desc, 'comparateur.html', '') + body + '\n' + foot(''))
+
+
+# --- face à face : jusqu'à 4 modèles choisis à la main --------------------------------
+def build_face():
+    src = open(os.path.join(ROOT, 'src/index.body.html'), encoding='utf-8').read()
+    shared = '\n'.join(re.findall(r'//<shared>\n(.*?)//</shared>', src, re.S))   # mêmes fonctions et même fiche technique que le comparateur
+    body = open(os.path.join(ROOT, 'src/face.body.html'), encoding='utf-8').read()
+    js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
+    meta_js = {k: META[k] for k in ('NATION', 'ADJ', 'SITE', 'SCORE_ENV')}
+    meta_js['LIENS'] = LIENS
+    body = (body.replace('__SHARED_JS__', shared).replace('__DATA__', js(CARS)).replace('__AVIS__', js(AVIS))
+                .replace('__META__', js(meta_js)).replace('__PHOTOS__', js({k: {'f': v['f'], 'c': v['credit']} for k, v in PH.items()})))
+    desc = "Comparez côte à côte jusqu'à quatre voitures neuves de votre choix : fiches techniques, prix, malus et avis de la presse, motorisation par motorisation."
+    hero = hero_small('', 'face-a-face.html', 'Face à face', "Comparez <span>jusqu'à 4 modèles</span>",
+                      "Vous savez déjà entre quelles voitures vous hésitez ? Choisissez-les et comparez leurs fiches techniques et notre avis côte à côte.")
+    write('face-a-face.html', head("Face à face : comparez jusqu'à 4 voitures neuves | Mioto", desc, 'face-a-face.html', '') + hero + body + '\n' + foot(''))
 
 
 # --- page d'accueil ------------------------------------------------------------------
@@ -428,7 +445,7 @@ def build_model(b, m, l):
   <section class="card summary">
     <div class="sum-top">
       <div class="price num">{f'<small class="from">À partir de</small>{eur(pm)}' if pm else 'Prix non communiqué'}</div>
-      <div class="acts2">{f'<a class="site-btn" href="{esc(site)}" target="_blank" rel="noopener">Voir sur le site {esc("DS" if b == "DS Automobiles" else b)}</a>' if site else ''}<a class="fiche-link" href="{p}comparateur.html">Comparer avec mes critères</a></div>
+      <div class="acts2">{f'<a class="site-btn" href="{esc(site)}" target="_blank" rel="noopener">Voir sur le site {esc("DS" if b == "DS Automobiles" else b)}</a>' if site else ''}<a class="fiche-link" href="{p}face-a-face.html?m={quote(b + '|' + m)}">Comparer face à face</a><a class="fiche-link" href="{p}comparateur.html">Comparer avec mes critères</a></div>
     </div>
     {f'<div class="bdgs">{"".join(badges)}</div>' if badges else ''}
     <div class="tiles">{''.join(tiles)}</div>
@@ -619,6 +636,7 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'assets'), os.path.join(OUT, 'assets'))
     shutil.copy(os.path.join(ROOT, 'assets', 'favicon.ico'), os.path.join(OUT, 'favicon.ico'))
     build_index()
+    build_face()
     build_home()
     for (b, m), l in MODELS.items(): build_model(b, m, l)
     build_brands()
@@ -630,7 +648,7 @@ def main():
     p4 = SITE_URL or ''
     write('404.html', head('Page introuvable | Mioto', "Cette page n'existe pas ou plus.", '404.html', p4) + hero_small(p4, '', 'Erreur 404', 'Page <span>introuvable</span>', '')
           + f'<div class="wrap page prose"><p>Ce modèle n\'est peut-être plus commercialisé, ou l\'adresse a changé.</p><p><a href="{p4}index.html">Retour à l\'accueil</a> · <a href="{p4}comparateur.html">Comparateur</a> · <a href="{p4}marques.html">Tous les modèles</a></p></div>' + foot(p4))
-    urls = ['', 'comparateur.html', 'marques.html', 'selections.html', 'methode.html', 'mentions-legales.html'] + sel_urls + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
+    urls = ['', 'comparateur.html', 'face-a-face.html', 'marques.html', 'selections.html', 'methode.html', 'mentions-legales.html'] + sel_urls + [f'modeles/{mslug(b, m)}.html' for b, m in MODELS]
     if SITE_URL:
         write('sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
               ''.join(f'  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY.isoformat()}</lastmod></url>\n' for u in urls) + '</urlset>\n')

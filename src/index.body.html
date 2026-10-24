@@ -69,6 +69,7 @@
 <script type="application/json" id="photos-data">__PHOTOS__</script>
 <script>
 (function(){
+//<shared>
 const CARS = JSON.parse(document.getElementById('data').textContent);
 const META = JSON.parse(document.getElementById('meta-data').textContent);
 const slug = s=> s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -248,6 +249,7 @@ const brandFlag = b=> flag(NATION[b]);
 
 CARS.forEach((c,i)=>{ c.id=i; c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
 
+//</shared>
 /* ---------- Fonctions de notation ---------- */
 // cible tout juste atteinte = BASE ; faire mieux rapporte jusqu'à 1 ; en deçà, la note décroît jusqu'à 0 à la limite de tolérance
 const BASE = .8;
@@ -531,7 +533,9 @@ function gauge(sc){
 }
 
 /* ---------- Rendus ---------- */
+//<shared>
 const silFor = c=>{ const k=c.tags.find(t=>SIL[t]) || (c.tags.includes('Limousine')?'Berline':c.tags.includes('Roadster')?'Cabriolet':'Berline'); return silhouette(k); };
+//</shared>
 /* Point faible : le critère où la voiture perd le plus de points */
 function weakPoint(r){ if(!r.parts.length) return null;
   const p=r.parts.reduce((a,b)=> b.v<a.v?b:a); if(p.v>=.8) return {ok:true, txt:'Remplit tous vos critères'};
@@ -607,6 +611,7 @@ function medal(n,size=44){ const [l,m,d,lab]=MEDAL[n];
     <circle cx="20" cy="32" r="11.5" fill="${l}" stroke="${d}" stroke-width="1"/>
     <path d="M13 26 Q20 21 27 26" fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round"/>
     <text x="20" y="37.5" text-anchor="middle" style="font-family:var(--f-display);font-stretch:var(--wd)" font-weight="700" font-size="16" fill="${d}">${n}</text></svg>`; }
+//<shared>
 /* Sites officiels des constructeurs (France) */
 const SITE = META.SITE;
 const LIENS = META.LIENS || {};
@@ -614,6 +619,7 @@ const siteUrl = c=> LIENS[c.b+'|'+c.m] || SITE[c.b];
 const EXT_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>';
 const siteName = b=> b==='DS Automobiles'?'DS':b;
 const siteBtn = (c,big)=> siteUrl(c)?`<a class="site-${big?'btn':'link'}" href="${siteUrl(c)}" target="_blank" rel="noopener noreferrer" title="${LIENS[c.b+'|'+c.m]?'Ouvrir la page '+c.b+' '+c.m+' sur le site officiel':'Ouvrir le site officiel '+c.b} (nouvel onglet)">${big?'Voir sur le site '+siteName(c.b):'Site '+siteName(c.b)}${EXT_IC}</a>`:'';
+//</shared>
 const SOON = c=> c.y && c.y>new Date().getFullYear();
 const endBadge = c=> (SOON(c)?`<span class="tag warn">Arrivée prévue en ${c.y}</span>`:'')+(eligibleAid(c)?`<span class="tag ok">${AID_TXT}</span>`:'')+(c.end?`<span class="tag warn">Fin de commercialisation ${c.end}</span>`:'');
 const keyTags = c=>{ const t=[ENERGY[c.e], c.c, c.pl+' places', c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
@@ -778,6 +784,7 @@ function syncCmp(){
     <button type="button" class="go" data-open ${CMP.length<2?'disabled':''}>Comparer (${CMP.length})</button>`;
   if(!document.getElementById('cmp-view').hidden) renderCompare();
 }
+//<shared>
 const SPEC_ROWS = [
   ['Prix', c=>c.p, c=>c.p==null?'n.c.':'à partir de '+eur(c.p), 'lo'],
   ['Malus 2026', c=>c.ml||0, c=>c.ml?eur(c.ml):'aucun', 'lo'],
@@ -812,6 +819,7 @@ function winners(vals,better){ if(!better) return []; const ok=vals.map((v,i)=>[
   if(ok.length<2) return []; const best = better==='hi'?Math.max(...ok.map(x=>x[0])):Math.min(...ok.map(x=>x[0]));
   if(ok.every(([v])=>v===best)) return []; return ok.filter(([v])=>v===best).map(x=>x[1]); }
 function losers(vals,better){ if(!better) return []; return winners(vals, better==='hi'?'lo':'hi'); }
+//</shared>
 function renderCompare(){
   const cars=CMP.map(id=>CARS[id]), evs=cars.map(evaluate), n=cars.length;
   const row=(label,vals,cells,better)=>{ const w=winners(vals,better), l=losers(vals,better);
@@ -833,7 +841,7 @@ function renderCompare(){
     body+=row(label, get?cars.map(get):[], cells, get?better:null); });
   document.getElementById('cmp-sheet').classList.remove('narrow');
   document.getElementById('cmp-sheet').innerHTML=`
-    <div class="sheet-h"><h2 id="cmp-title">Comparaison</h2><button type="button" class="x" data-close>Fermer</button></div>
+    <div class="sheet-h"><h2 id="cmp-title">Comparaison</h2><a class="site-link ff-link" href="face-a-face.html#f=${b64e(JSON.stringify(cars.map(c=>[c.b,c.m,c.v])))}">Ouvrir en face à face</a><button type="button" class="x" data-close>Fermer</button></div>
     <div class="ctable-wrap"><table class="ctable" style="min-width:${105+n*120}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
       <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${c.b} ${c.m}</div><div class="c-ver">${c.v}</div>${siteBtn(c)}<button type="button" class="rm" data-rm="${c.id}">Retirer</button></th>`).join('')}</tr></thead>
       <tbody>${body}</tbody></table></div>

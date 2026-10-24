@@ -1,0 +1,124 @@
+<main class="wrap ff">
+  <section class="ff-pick" aria-labelledby="ff-pick-t">
+    <h2 id="ff-pick-t" class="ff-t">Vos modèles</h2>
+    <p class="ff-help">Pour chaque voiture, choisissez la marque, le modèle puis la motorisation. Vous pouvez aussi comparer deux motorisations d'un même modèle.</p>
+    <div class="ff-slots" id="ff-slots"></div>
+  </section>
+  <section class="ff-res" id="ff-res" aria-live="polite"></section>
+</main>
+
+<script type="application/json" id="data">__DATA__</script>
+<script type="application/json" id="avis-data">__AVIS__</script>
+<script type="application/json" id="meta-data">__META__</script>
+<script type="application/json" id="photos-data">__PHOTOS__</script>
+<script>
+(function(){
+__SHARED_JS__
+/* ---------- Face à face : jusqu'à 4 modèles choisis par marque, modèle et motorisation ---------- */
+const MAXN = 4;
+const byKey = new Map(CARS.map(c=>[c.b+'|'+c.m+'|'+c.v, c]));
+const MODELS_OF = {};
+CARS.forEach(c=>{ const m = MODELS_OF[c.b] || (MODELS_OF[c.b] = new Map()); if(!m.has(c.m)) m.set(c.m, []); m.get(c.m).push(c); });
+Object.values(MODELS_OF).forEach(m=>m.forEach(l=>l.sort((a,b)=>(a.p ?? 1e9)-(b.p ?? 1e9))));
+const modelNames = b=> [...(MODELS_OF[b] || new Map()).keys()].sort((x,y)=>x.localeCompare(y,'fr'));
+const cheapest = (b,m)=> MODELS_OF[b].get(m)[0];
+const b64e = str=> btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const b64d = str=> decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
+const blank = ()=>({b:'', m:'', id:null});
+let SL = [];
+
+function readState(){
+  SL = [];
+  if(/^#f=/.test(location.hash)){
+    try{ JSON.parse(b64d(location.hash.slice(3))).slice(0, MAXN).forEach(([b,m,v])=>{
+      const c = byKey.get(b+'|'+m+'|'+v);
+      if(c) SL.push({b, m, id:c.id});
+      else if(MODELS_OF[b] && MODELS_OF[b].has(m)) SL.push({b, m, id:cheapest(b,m).id});   // motorisation disparue : la moins chère du modèle
+      else if(MODELS_OF[b]) SL.push({b, m:'', id:null});
+    }); }catch(e){ SL = []; }
+  }
+  const q = new URLSearchParams(location.search).get('m');   // lien depuis une fiche modèle : ?m=Marque|Modèle
+  if(!SL.length && q){ const [b,m] = q.split('|'); if(MODELS_OF[b] && MODELS_OF[b].has(m)) SL.push({b, m, id:cheapest(b,m).id}); }
+  while(SL.length < 2) SL.push(blank());
+}
+function writeState(){
+  const arr = SL.filter(s=>s.id!=null).map(s=>{ const c=CARS[s.id]; return [c.b, c.m, c.v]; });
+  try{ history.replaceState(null, '', location.pathname + (arr.length ? '#f='+b64e(JSON.stringify(arr)) : '')); }catch(e){}
+}
+
+const opt = (v,l,sel)=> `<option value="${esc(v)}"${sel?' selected':''}>${esc(l)}</option>`;
+function slotHTML(s, i){
+  const c = s.id!=null ? CARS[s.id] : null;
+  const brands = BRANDS.map(b=>opt(b, b, b===s.b)).join('');
+  const models = s.b ? modelNames(s.b).map(m=>opt(m, m, m===s.m)).join('') : '';
+  const vers = (s.b && s.m) ? MODELS_OF[s.b].get(s.m).map(v=>opt(v.id, v.v+' · '+ENERGY[v.e]+' · '+(v.p!=null?eur(v.p):'prix n.c.'), v.id===s.id)).join('') : '';
+  const canRm = SL.length>2 || s.b;
+  return `<div class="ff-slot${c?' on':''}">
+    <div class="ff-h"><span class="ff-n">Modèle ${i+1}</span>${canRm?`<button type="button" class="ff-rm" data-rm="${i}" aria-label="Retirer le modèle ${i+1}">Retirer</button>`:''}</div>
+    <div class="ff-pic">${c ? picFor(c) : ''}</div>
+    <label class="ff-f"><span>Marque</span><select data-i="${i}" data-f="b"><option value="">Choisir une marque</option>${brands}</select></label>
+    <label class="ff-f"><span>Modèle</span><select data-i="${i}" data-f="m"${s.b?'':' disabled'}><option value="">${s.b?'Choisir un modèle':'Choisissez d’abord la marque'}</option>${models}</select></label>
+    <label class="ff-f"><span>Motorisation</span><select data-i="${i}" data-f="v"${s.m?'':' disabled'}>${vers || '<option value="">Choisissez d’abord le modèle</option>'}</select></label>
+  </div>`;
+}
+function renderSlots(){
+  const left = MAXN - SL.length;
+  document.getElementById('ff-slots').innerHTML = SL.map(slotHTML).join('') +
+    (left>0 ? `<button type="button" class="ff-add" data-add><b>+ Ajouter un modèle</b><small>${left} place${left>1?'s':''} restante${left>1?'s':''}</small></button>` : '');
+}
+
+function renderTable(){
+  const el = document.getElementById('ff-res');
+  const cars = SL.filter(s=>s.id!=null).map(s=>CARS[s.id]), n = cars.length;
+  if(n < 2){ el.innerHTML = `<div class="ff-empty">${n ? 'Choisissez un deuxième modèle pour lancer le face-à-face.' : 'Choisissez au moins deux modèles pour lancer le face-à-face.'}</div>`; return; }
+  const row = (label, vals, cells, better)=>{ const w=winners(vals,better), l=losers(vals,better);
+    return `<tr><th scope="row">${label}</th>${cells.map((x,i)=>`<td class="${w.includes(i)?'win':l.includes(i)?'lose':''}">${x ?? '—'}</td>`).join('')}</tr>`; };
+  const sec = t=> `<tr class="sec"><th colspan="${n+1}">${t}</th></tr>`;
+  let body = '';
+  if(cars.some(avisOf)){
+    const A = c=> avisOf(c);
+    body += sec('Notre avis');
+    body += row('En bref', [], cars.map(c=>A(c)?`<span class="c-txt">${esc(A(c).v)}</span>`:null));
+    body += row('Points forts', [], cars.map(c=>A(c)?`<ul class="c-ul pl">${A(c).p.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:null));
+    body += row('Points faibles', [], cars.map(c=>A(c)?`<ul class="c-ul mn">${A(c).m.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:null));
+    if(cars.some(c=>A(c) && A(c).q)) body += row('Pour qui', [], cars.map(c=>A(c)&&A(c).q?`<span class="c-txt">${esc(A(c).q)}</span>`:null));
+    if(cars.some(c=>A(c) && A(c).x)) body += row('Selon la version', [], cars.map(c=>A(c)&&A(c).x?`<span class="c-txt">${esc(A(c).x)}</span>`:null));
+  }
+  body += sec('Fiche technique');
+  SPEC_ROWS.forEach(([label,get,show,better])=>{ const cells=cars.map(show); if(cells.every(x=>x==null)) return;
+    body += row(label, get?cars.map(get):[], cells, get?better:null); });
+  el.innerHTML = `
+    <div class="ff-bar"><h2 class="ff-t">Le face-à-face</h2><button type="button" class="ff-share" data-share>Copier le lien</button></div>
+    <div class="ff-card"><div class="ctable-wrap"><table class="ctable" style="min-width:${120+n*150}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
+      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${esc(c.b)} ${esc(c.m)}</div><div class="c-ver">${esc(c.v)}</div><a class="site-link" href="${ficheUrl(c)}">Fiche du modèle</a>${siteBtn(c)}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody></table></div></div>
+    <p class="legend">▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Prix « à partir de », malus 2026 calculé sur le CO₂ et le poids.</p>`;
+}
+function update(focus){
+  renderSlots(); renderTable(); writeState();
+  if(focus){ const f=document.querySelector(focus); if(f) f.focus(); }
+}
+
+document.addEventListener('change', e=>{
+  const t = e.target.closest('select[data-i]'); if(!t) return;
+  const i = +t.dataset.i, f = t.dataset.f, v = t.value; let next = null;
+  if(f==='b'){ SL[i] = {b:v, m:'', id:null};
+    if(v && MODELS_OF[v].size===1){ const m=modelNames(v)[0]; SL[i] = {b:v, m, id:cheapest(v,m).id}; next='v'; } else next='m'; }
+  else if(f==='m'){ SL[i].m = v; SL[i].id = v ? cheapest(SL[i].b, v).id : null; next='v'; }
+  else { SL[i].id = v==='' ? null : +v; next='v'; }
+  update(`select[data-i="${i}"][data-f="${next}"]`);
+});
+document.addEventListener('click', e=>{
+  const rm = e.target.closest('[data-rm]');
+  if(rm){ const i=+rm.dataset.rm; if(SL.length>2) SL.splice(i,1); else SL[i]=blank(); update(); return; }
+  if(e.target.closest('[data-add]')){ if(SL.length<MAXN){ SL.push(blank()); update(`select[data-i="${SL.length-1}"][data-f="b"]`); } return; }
+  const sh = e.target.closest('[data-share]');
+  if(sh){ const url = location.href, done = ()=>{ sh.textContent='Lien copié'; setTimeout(()=>{ sh.textContent='Copier le lien'; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, ()=>window.prompt('Copiez ce lien :', url));
+    else window.prompt('Copiez ce lien :', url); }
+});
+window.addEventListener('hashchange', ()=>{ if(/^#f=/.test(location.hash)){ readState(); renderSlots(); renderTable(); } });
+
+readState(); update();
+})();
+</script>
