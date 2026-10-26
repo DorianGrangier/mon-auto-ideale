@@ -384,7 +384,7 @@ def avis_html(b, m):
 TR_COURT = {'FWD': 'Traction', 'RWD': 'Propulsion', 'AWD': '4x4'}
 def boite_txt(c):
     b = c.get('bxl') or ''
-    if b.startswith('BVM'): return 'Manuelle' + (f' {b[3:]}' if b[3:] else '')
+    if b.startswith('BVM'): return 'Manuelle'
     if b.startswith('BVA') or c.get('bx') == 'A': return 'Automatique'
     return esc(b)
 def recharge_td(c):
