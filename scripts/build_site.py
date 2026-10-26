@@ -92,6 +92,8 @@ def pmin(l): ps = [c['p'] for c in l if c.get('p')]; return min(ps) if ps else N
 # Logo : les deux « o » sont des phares escamotables (fichiers sources dans assets/logo/).
 LOGO_SVG = open(os.path.join(ROOT, 'assets', 'logo', 'mioto-blanc.svg'), encoding='utf-8').read().strip().replace(
     '<svg xmlns="http://www.w3.org/2000/svg" ', '<svg class="logo-svg" width="101" height="30" aria-hidden="true" focusable="false" ')
+import hashlib
+CSS_V = hashlib.md5(open(os.path.join(ROOT, 'assets', 'site.css'), 'rb').read()).hexdigest()[:8]
 def nav(p, cur):
     items = [('index.html', 'Accueil'), ('comparateur.html', 'Comparateur'), ('face-a-face.html', 'Face à face'), ('marques.html', 'Marques et modèles'), ('selections.html', 'Sélections'), ('methode.html', 'Méthode')]
     links = ''.join(f'<a href="{p}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in items)
@@ -118,7 +120,7 @@ def head(title, desc, path, p, extra=''):
 <link rel="icon" href="{p}assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{p}assets/apple-touch-icon.png">
 <link rel="preload" href="{p}assets/fonts/outfit-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{p}assets/site.css">
+<link rel="stylesheet" href="{p}assets/site.css?v={CSS_V}">
 {extra}
 </head>
 <body>
@@ -481,8 +483,8 @@ def build_brands():
         body = ''
         for cat in sorted(groups, key=lambda c: CAT_ORDER.index(c) if c in CAT_ORDER else 99):
             g = sorted(groups[cat], key=lambda x: pmin(x[1]) or 10**9)   # dans une catégorie : du moins cher au plus cher
-            body += f'<h3 class="cat-h">{CAT_LABEL.get(cat, cat)} <small>{len(g)}</small></h3><div class="mgrid">{"".join(mini_card(b, mm, ll, p) for mm, ll in g)}</div>'
-        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2>{body}</section>'''
+            body += f'<div class="cat-grp"><h3 class="cat-h">{CAT_LABEL.get(cat, cat)} <small>{len(g)}</small></h3><div class="mgrid">{"".join(mini_card(b, mm, ll, p) for mm, ll in g)}</div></div>'
+        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2><div class="cat-wrap">{body}</div></section>'''
     n = len(MODELS)
     page = head('Toutes les marques et tous les modèles | Mioto', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
         + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, rangés par catégorie puis par prix d\'entrée.') \

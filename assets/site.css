@@ -756,8 +756,17 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
 .acts2 .fiche-link + .fiche-link{margin-left:0}
 @media (max-width:560px){.ff-pic{display:none}.ff-slot{padding:12px;gap:8px}.ff-add{min-height:64px;flex-direction:row;gap:10px}.ff-t{font-size:21px}}
 .sheet-h .ff-link{margin-left:auto;margin-right:10px;align-self:center}
-/* Catalogue : sous-titres de catégorie au sein d'une marque */
-.brand-sec .cat-h{font-family:var(--f-display);font-stretch:var(--wd);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
-.brand-sec .cat-h small{font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted);background:var(--chip);border-radius:999px;padding:1px 8px}
-.brand-sec h2 + .cat-h{margin-top:6px}
+/* Catalogue : au sein d'une marque, les catégories s'enchaînent côte à côte, titre au-dessus de leurs modèles */
+.brand-sec .cat-wrap{display:flex;flex-wrap:wrap;gap:20px 26px;align-items:flex-start}
+.brand-sec .cat-grp{display:flex;flex-direction:column;gap:9px;min-width:0;max-width:100%}
+.brand-sec .cat-grp .mgrid{display:flex;flex-wrap:wrap;gap:10px}
+.brand-sec .cat-grp .mgrid > *{width:206px;flex:none}
+.brand-sec .cat-h{font-family:var(--f-display);font-stretch:var(--wd);font-size:12.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0;display:flex;align-items:center;gap:7px;line-height:1.2;padding-bottom:7px;border-bottom:2px solid var(--chip)}
+.brand-sec .cat-h small{font-size:11.5px;font-weight:600;letter-spacing:0;color:var(--muted);background:var(--chip);border-radius:999px;padding:1px 7px}
+@media (max-width:640px){
+  .brand-sec .cat-wrap{display:block}
+  .brand-sec .cat-grp{margin-bottom:16px}
+  .brand-sec .cat-grp .mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .brand-sec .cat-grp .mgrid > *{width:auto}
+}
 @media (max-width:640px){.mgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}

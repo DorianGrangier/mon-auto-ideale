@@ -8,7 +8,7 @@ css = open(src.rsplit('/', 1)[0] + '/assets/site.css', encoding='utf-8').read()
 css = re.sub(r"@font-face\{[^}]*\}\n?", '', css)
 fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Onest:wght@100..900&display=swap">'
 h = re.sub(r'<link rel="preload"[^>]*>\n?', '', h)
-h = h.replace('<link rel="stylesheet" href="assets/site.css">', fonts + '\n<style>\n' + css + '\n</style>')
+h = re.sub(r'<link rel="stylesheet" href="assets/site\.css(?:\?v=[0-9a-f]+)?">', lambda m: fonts + '\n<style>\n' + css + '\n</style>', h)
 own = os.path.basename(src)
 def _link(m):
     href = m.group(1)
