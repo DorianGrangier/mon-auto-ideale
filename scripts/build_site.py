@@ -462,16 +462,30 @@ def build_model(b, m, l):
     write(f'modeles/{mslug(b, m)}.html', page)
 
 # --- marques -------------------------------------------------------------------------
+# Catalogue : au sein d'une marque, les modèles sont rangés par catégorie (la carrosserie principale la plus fréquente de leurs versions)
+CAT_ORDER = ['Citadine', 'Compacte', 'Berline', 'Break', 'Monospace', 'SUV urbain', 'SUV', 'Tout-terrain', 'Coupé', 'Cabriolet']
+CAT_LABEL = {'Citadine': 'Citadines', 'Compacte': 'Compactes', 'Berline': 'Berlines', 'Break': 'Breaks', 'Monospace': 'Monospaces',
+             'SUV urbain': 'SUV urbains', 'SUV': 'SUV', 'Tout-terrain': 'Tout-terrain', 'Coupé': 'Coupés', 'Cabriolet': 'Cabriolets et roadsters'}
+def model_cat(l):
+    from collections import Counter
+    alias = {'Roadster': 'Cabriolet', 'Limousine': 'Berline'}
+    return Counter(alias.get(c['c'].split(', ')[0], c['c'].split(', ')[0]) for c in l).most_common(1)[0][0]
 def build_brands():
     p = ''; brands = sorted({b for b, _ in MODELS}, key=lambda s: slug(s))
     jump = ''.join(f'<a href="#{slug(b)}">{flag(b)} {esc(b)}</a>' for b in brands)
     secs = ''
     for b in brands:
-        ms = sorted([(mm, ll) for (bb, mm), ll in MODELS.items() if bb == b], key=lambda x: pmin(x[1]) or 10**9)
-        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2><div class="mgrid">{''.join(mini_card(b, mm, ll, p) for mm, ll in ms)}</div></section>'''
+        ms = [(mm, ll) for (bb, mm), ll in MODELS.items() if bb == b]
+        groups = {}
+        for mm, ll in ms: groups.setdefault(model_cat(ll), []).append((mm, ll))
+        body = ''
+        for cat in sorted(groups, key=lambda c: CAT_ORDER.index(c) if c in CAT_ORDER else 99):
+            g = sorted(groups[cat], key=lambda x: pmin(x[1]) or 10**9)   # dans une catégorie : du moins cher au plus cher
+            body += f'<h3 class="cat-h">{CAT_LABEL.get(cat, cat)} <small>{len(g)}</small></h3><div class="mgrid">{"".join(mini_card(b, mm, ll, p) for mm, ll in g)}</div>'
+        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} modèle{'s' if len(ms) > 1 else ''} · marque {esc(ADJ.get(NATION.get(b, ''), ''))}</small></h2>{body}</section>'''
     n = len(MODELS)
     page = head('Toutes les marques et tous les modèles | Mioto', f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', 'marques.html', p) \
-        + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, classés par prix d\'entrée.') \
+        + hero_small(p, 'marques.html', 'Catalogue', 'Marques <span>et modèles</span>', f'{n} modèles de {len(brands)} marques, rangés par catégorie puis par prix d\'entrée.') \
         + f'<div class="wrap page"><nav class="jump jump-desk" aria-label="Aller à une marque">{jump}</nav>' \
         + f'<details class="jump-mob" id="jump-mob"><summary><span>Aller à une marque</span><small>{len(brands)} marques</small></summary><nav class="jump-list" aria-label="Aller à une marque">{jump}</nav></details>' \
         + f'{secs}</div>' \
