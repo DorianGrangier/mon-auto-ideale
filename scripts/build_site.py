@@ -380,6 +380,13 @@ def avis_html(b, m):
   {f'<p class="avis-s"><b>Bon à savoir</b> {esc(a["s"])}</p>' if a.get('s') else ''}
 </div>'''
     return f'<section class="card"><h2>Notre avis</h2>{out}<p class="small">Synthèse d\'au moins deux essais de la presse automobile, sans influence sur les notes du comparateur.</p></section>'
+# tableau des versions : libellés courts et lisibles
+TR_COURT = {'FWD': 'Traction', 'RWD': 'Propulsion', 'AWD': '4x4'}
+def boite_txt(c):
+    b = c.get('bxl') or ''
+    if b.startswith('BVM'): return 'Manuelle' + (f' {b[3:]}' if b[3:] else '')
+    if b.startswith('BVA') or c.get('bx') == 'A': return 'Automatique'
+    return esc(b)
 def recharge_td(c):
     # électrique : durée 10-80 % puis puissance de recharge rapide ; hybride rechargeable : puissance de charge
     if c['e'] == 'ev':
@@ -432,7 +439,7 @@ def build_model(b, m, l):
     if soon: badges.append(f'<span class="bdg warn">Arrivée prévue en {min(soon)}</span>')
     site = LIENS.get(f'{b}|{m}') or SITE.get(b)
     has_chg = any(c['e'] in ('ev', 'phev') and (c.get('t80') or c.get('kw')) for c in l)
-    rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{esc(c.get('bxl') or '')}</td><td>{esc(TR.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td>{recharge_td(c) if has_chg else ''}<td class="num">{c.get('co2','—')}</td><td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}{f'<small class="mlt">+ {eur(c["ml"])} de malus</small>' if c.get('ml') else ''}</td></tr>''' for c in l)
+    rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{boite_txt(c)}</td><td>{esc(TR_COURT.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td>{recharge_td(c) if has_chg else ''}<td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}{f'<small class="mlt">+ {eur(c["ml"])} de malus</small>' if c.get('ml') else ''}</td></tr>''' for c in l)
     def span(vals, unit='', d=0):
         return rng(vals, unit, d)
     dl = [('Carrosserie', esc(c0['c'])), ('Motorisations', esc(' · '.join(en))), ('Places', esc(' ou '.join(sorted({str(c.get('pl')) for c in l if c.get('pl')})))),
@@ -467,7 +474,7 @@ def build_model(b, m, l):
   </section>
   {avis_html(b, m)}
   <section class="card"><h2>{f'Les {len(l)} versions' if len(l) > 1 else 'La seule version'}</h2>
-    <div class="vt-wrap"><table class="vtable"><thead><tr><th scope="col">Version</th><th scope="col">Énergie</th><th scope="col">Puissance</th><th scope="col">Boîte</th><th scope="col">Transmission</th><th scope="col">Conso. / autonomie</th>{'<th scope="col">Recharge</th>' if has_chg else ''}<th scope="col">CO₂ (g/km)</th><th scope="col">Coffre (L)</th><th scope="col">Prix dès</th></tr></thead><tbody>{rows}</tbody></table></div>
+    <div class="vt-wrap"><table class="vtable"><thead><tr><th scope="col">Version</th><th scope="col">Énergie</th><th scope="col">Puissance</th><th scope="col">Boîte</th><th scope="col">Transmission</th><th scope="col">Conso. / autonomie</th>{'<th scope="col">Recharge</th>' if has_chg else ''}<th scope="col">Coffre (L)</th><th scope="col">Prix dès</th></tr></thead><tbody>{rows}</tbody></table></div>
     <p class="small">Consommation et autonomie : valeurs minimales annoncées par le constructeur en cycle WLTP mixte. Prix « à partir de » de la finition d'entrée pour chaque motorisation. Malus 2026 (CO₂ et poids) estimé d'après le barème officiel, hors abattements familiaux.</p>
   </section>
   <section class="card"><h2>Caractéristiques</h2><dl class="specs">{''.join(f'<dt>{k}</dt><dd>{v}</dd>' for k, v in dl)}</dl></section>
