@@ -247,7 +247,7 @@ function flag(nation, cls='flag'){ const inner=FLAG_SVG[nation]; if(!inner) retu
   return `<svg class="${cls}" viewBox="0 0 30 20" role="img" aria-label="${nation}"><title>${nation}</title>${inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`; }
 const brandFlag = b=> flag(NATION[b]);
 
-CARS.forEach((c,i)=>{ c.id=i; c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
+CARS.forEach((c,i)=>{ c.big = c.pl>5 || !!c.s7; c.plTxt = (c.s7 && c.pl<=5) ? c.pl+' ou 7 places' : c.pl+' places'; c.id=i; c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
 
 //</shared>
 /* ---------- Fonctions de notation ---------- */
@@ -269,7 +269,7 @@ const CRITS = [
  {id:'body', name:'Carrosserie', short:'Carrosserie',
   score(c,s){ let best=0; s.val.forEach(u=>c.tags.forEach(t=>{ best=Math.max(best, u===t?1:((BODY_SIM[u]||{})[t]||0)) })); return [best, c.c]; }},
  {id:'seats', name:'Nombre de places', short:'Places',
-  score(c,s){ const p=c.pl, big=p>5; return [s.val==='gt5' ? (big?1:0) : (big?.6:1), p+' places']; }},
+  score(c,s){ return [s.val==='gt5' ? (c.big?1:0) : (c.pl>5?.6:1), c.plTxt]; }},
  {id:'cost', name:"Coût de l'énergie par an", short:'Coût énergie',
   score(c,s){ const v=energyCost(c); return v==null?[UNKNOWN,'n.c.']:[atMost(v,s.val,.5,.4), fmtCost(v)]; }},
  {id:'aut', name:'Autonomie électrique', short:'Autonomie élec.',
@@ -352,7 +352,7 @@ function dualHTML(k,s){ const d=DUAL[k];
 const CONTROL = {
   moto: s=>`<div class="chips">${MOTO_OPTS.map(([v,l])=>`<button type="button" class="chip" data-k="moto" data-chip="${v}" aria-pressed="${s.val.has(v)}">${l}</button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une motorisation proche (ex. hybride rechargeable pour « hybride ») obtient une note partielle. Choisir « Électrique » affiche les critères d'autonomie et de puissance de recharge.</p>`,
   body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${v}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
-  seats: s=>seg('seats','val',[['le5','5 places ou moins'],['gt5','Plus de 5 places']],s.val)+`<p class="hint">Avec « 5 places ou moins », un 7 places reste possible (note partielle). Avec « Plus de 5 places », seuls les 7 places conviennent.</p>`,
+  seats: s=>seg('seats','val',[['le5','5 places ou moins'],['gt5','Plus de 5 places']],s.val)+`<p class="hint">Avec « Plus de 5 places », seules les voitures proposées en 7 places (de série ou en option) conviennent. Avec « 5 places ou moins », une voiture uniquement 7 places reste possible (note partielle).</p>`,
   cost: s=>range('cost','val',300,4000,50,s.val,'€/an')+`<p class="hint">Budget maximum de carburant ou d'électricité par an, selon le kilométrage et les prix ci-dessous.</p>`,
   aut: s=>range('aut','val',30,700,10,s.val,'km')+`<p class="hint">Autonomie WLTP mixte minimale annoncée par le constructeur. Concerne les électriques et hybrides rechargeables.</p>`,
   chg: s=>range('chg','val',7,300,1,s.val,'kW')+`<p class="hint">Puissance maximale acceptée par la voiture (borne rapide DC si disponible). Le temps de recharge de 10 à 80 %, plus parlant, est affiché à côté quand il est connu ; il comptera dans la note quand il sera renseigné pour toutes les voitures.</p>`,
@@ -622,7 +622,7 @@ const siteBtn = (c,big)=> siteUrl(c)?`<a class="site-${big?'btn':'link'}" href="
 //</shared>
 const SOON = c=> c.y && c.y>new Date().getFullYear();
 const endBadge = c=> (SOON(c)?`<span class="tag warn">Arrivée prévue en ${c.y}</span>`:'')+(eligibleAid(c)?`<span class="tag ok">${AID_TXT}</span>`:'')+(c.end?`<span class="tag warn">Fin de commercialisation ${c.end}</span>`:'');
-const keyTags = c=>{ const t=[ENERGY[c.e], c.c, c.pl+' places', c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
+const keyTags = c=>{ const t=[ENERGY[c.e], c.c, c.plTxt, c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
   if(c.e==='ev'){ if(c.aut) t.push(c.aut+' km'); } else if(c.l!=null) t.push(fmt(c.l,1)+' L/100'); if(c.tk) t.push(c.tk+' L de coffre'); if(c.tr==='AWD') t.push('4 roues motrices'); const ec=energyCost(c); if(ec!=null) t.push(fmtCost(ec)+' d\'énergie'); return t; };
 const breakdown = r=> `<ul class="breakdown">${r.parts.map(p=>{ const pc=Math.round(p.v*100);
   return `<li><span class="bn">${p.cr.short}</span><span class="bv">${p.txt}</span><span class="bar"><i style="width:${pc}%;background:${color(pc)}"></i></span><span class="bs">${pc}</span></li>`}).join('')}</ul>`;
@@ -634,7 +634,7 @@ const specs = c=>{ const rows=[
   ['Coût énergie',energyCost(c)!=null?fmtCost(energyCost(c))+' · '+fuelNote(c)+' · '+fmt(E.km)+' km':null],
   ['CO₂',c.co2!=null?c.co2+' g/km · classe '+c.cls:null],['Batterie',c.bat?fmt(c.bat,1)+' kWh':null],
   ['Autonomie élec.',c.aut?c.aut+' km':null],['Recharge max.',c.kw?fmt(c.kw,c.kw%1?1:0)+' kW · '+c.rt:null],['Recharge 10-80 %',c.t80?fmt(c.t80)+' min':null],
-  ['Boîte',c.bxl],['Transmission',TR[c.tr]],['Places / portes',c.pl+' / '+c.dr],['Longueur',c.len?fmt(c.len,2)+' m':null],
+  ['Boîte',c.bxl],['Transmission',TR[c.tr]],['Places / portes',(c.s7&&c.pl<=5?c.pl+' ou 7':c.pl)+' / '+c.dr],['Longueur',c.len?fmt(c.len,2)+' m':null],
   ['Poids à vide',c.w?fmt(c.w)+' kg':null],['Coffre',c.tk?c.tk+' L':null],['Coffre avant',c.fk==null?null:(c.fk?'oui':'non')],['Euro NCAP',c.nc?c.nc+' étoiles':'non testée'],
   ["Crit'Air",c.ca!=null?String(c.ca):null],['Commercialisée depuis',c.y?String(c.y):null],['Fin de commercialisation',c.end?String(c.end):null],
   ['Aides à l\'achat',c.e!=='ev'?null:(eligibleAid(c)?'éligible':'non éligible')],['Prix',c.p==null?'n.c.':'à partir de '+eur(c.p)],['Malus 2026',c.ml?eur(c.ml)+' (estimation)':(c.p==null?null:'aucun')]];
@@ -806,7 +806,7 @@ const SPEC_ROWS = [
   ['Recharge 10-80 %', c=>c.t80, c=>c.t80?fmt(c.t80)+' min':null, 'lo'],
   ['Boîte', null, c=>c.bx==='A'?'Automatique':'Manuelle '+c.bxl.replace('BVM','')+' rapports'],
   ['Transmission', null, c=>TR[c.tr]],
-  ['Places / portes', null, c=>c.pl+' / '+c.dr],
+  ['Places / portes', null, c=>(c.s7&&c.pl<=5?c.pl+' ou 7':c.pl)+' / '+c.dr],
   ['Longueur', null, c=>c.len?fmt(c.len,2)+' m':null],
   ['Poids à vide', c=>c.w, c=>c.w?fmt(c.w)+' kg':null, 'lo'],
   ['Coffre', c=>c.tk, c=>c.tk?c.tk+' L':null, 'hi'],

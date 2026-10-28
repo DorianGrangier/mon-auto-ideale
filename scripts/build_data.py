@@ -43,7 +43,7 @@ for h in CANON:
 # Colonnes facultatives (critères à venir) : temps de recharge 10-80 % et coffre avant
 def _opt(prefix):
     return next((j for k,j in _pos.items() if k.startswith(prefix)), None)
-IDX += [_opt('temps recharge'), _opt("présence d'un coffre"), _opt('lien')]
+IDX += [_opt('temps recharge'), _opt("présence d'un coffre"), _opt('lien'), _opt('version 7')]  # « Version 7 places ? » : troisième rangée proposée (en série ou en option)
 raw=[tuple((list(r)[i] if i is not None and i<len(r) else None) for i in IDX) for r in raw]
 rows=[r for r in raw[1:] if r[1]]
 ALIAS={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}
@@ -108,7 +108,8 @@ for r in rows:
      'hp':i_(r[14]),'nm':i_(r[15]),'acc':num(r[16]),'l':num(r[17]),'co2':i_(r[18]),'cls':r[19],
      'kwh':num(r[20]),'aut':i_(r[21]),'bat':num(r[22]),'rt':None if r[23] in ('-',None) else r[23],
      'kw':num(r[24]),'bx':'A' if box=='BVA' else 'M','bxl':box,'tr':r[26],'w':i_(r[27]),
-     'len':num(r[28]),'tk':i_(r[31]),'nc':i_(r[32]),'ca':i_(r[33]),'p':i_(r[34]),'t80':num(r[35]),'fk':_yn(r[36]),'u':(str(r[37]).strip() if r[37] and str(r[37]).strip().startswith('http') else None)})
+     'len':num(r[28]),'tk':i_(r[31]),'nc':i_(r[32]),'ca':i_(r[33]),'p':i_(r[34]),'t80':num(r[35]),'fk':_yn(r[36]),'u':(str(r[37]).strip() if r[37] and str(r[37]).strip().startswith('http') else None),
+     's7':_yn(r[38]) or None})
 # garde-fou : des noms de version purement numériques signalent une colonne mal lue
 _num=sum(1 for d in out if str(d.get('v','')).replace('.','').isdigit())
 assert _num < len(out)*0.05, f'{_num} noms de version purement numériques : colonne « Nom motorisation » mal lue ?'

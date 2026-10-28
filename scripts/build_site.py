@@ -215,8 +215,9 @@ def _crit(c, k, o):
         if v is None: return None
         sc = _at_least(v, t, .35, .4); return 'Coffre', f'{fmt(t)} L minimum', f'{fmt(v)} L', sc, vs(sc, 'Plus grand que demandé', 'Pile la cible', 'Plus petit que demandé')
     if k == 'seats':
-        big = c['pl'] > 5; sc = (1 if big else 0) if o['val'] == 'gt5' else (.6 if big else 1)
-        return 'Places', 'Plus de 5' if o['val'] == 'gt5' else '5 au plus', f"{c['pl']} places", sc, 'Conforme' if sc == 1 else 'Non conforme'
+        big = c['pl'] > 5 or bool(c.get('s7')); sc = (1 if big else 0) if o['val'] == 'gt5' else (.6 if c['pl'] > 5 else 1)
+        txt = f"{c['pl']} ou 7 places" if c.get('s7') and c['pl'] <= 5 else f"{c['pl']} places"
+        return 'Places', 'Plus de 5' if o['val'] == 'gt5' else '5 au plus', txt, sc, 'Conforme' if sc == 1 else 'Non conforme'
     if k == 'ncap':
         v, t = c.get('nc'), o['val']
         if v is None: return None
@@ -442,7 +443,7 @@ def build_model(b, m, l):
     rows = ''.join(f'''<tr><th scope="row">{esc(c['v'])}</th><td>{esc(ENERGY[c['e']])}</td><td class="num">{c.get('hp','—')}{NB}ch</td><td>{boite_txt(c)}</td><td>{esc(TR_COURT.get(c.get('tr'), c.get('tr') or ''))}</td><td class="num">{conso(c)}</td>{recharge_td(c) if has_chg else ''}<td class="num">{c.get('tk','—')}</td><td class="num pr">{eur(c.get('p'))}{' <span class="aidt">aides</span>' if eligible(c) else ''}{f'<small class="mlt">+ {eur(c["ml"])} de malus</small>' if c.get('ml') else ''}</td></tr>''' for c in l)
     def span(vals, unit='', d=0):
         return rng(vals, unit, d)
-    dl = [('Carrosserie', esc(c0['c'])), ('Motorisations', esc(' · '.join(en))), ('Places', esc(' ou '.join(sorted({str(c.get('pl')) for c in l if c.get('pl')})))),
+    dl = [('Carrosserie', esc(c0['c'])), ('Motorisations', esc(' · '.join(en))), ('Places', esc(' ou '.join(sorted({str(c.get('pl')) for c in l if c.get('pl')} | ({'7'} if any(c.get('s7') for c in l) else set()), key=int)))),
           ('Portes', esc(' ou '.join(sorted({str(c.get('dr')) for c in l if c.get('dr')})))), ('Longueur', span([c.get('len') for c in l], 'm', 2)),
           ('Poids à vide', span([c.get('w') for c in l], 'kg')), ('0 à 100 km/h', span([c.get('acc') for c in l], 's', 1)),
           ("Crit'Air", esc(' ou '.join(sorted({str(c.get('ca')) for c in l if c.get('ca') is not None})) or '—')),
