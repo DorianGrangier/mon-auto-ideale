@@ -49,6 +49,10 @@ rows=[r for r in raw[1:] if r[1]]
 ALIAS={'Mercedes':'Mercedes-Benz','Mercedes Benz':'Mercedes-Benz','DS':'DS Automobiles','Citroen':'Citroën'}
 rows=[tuple([r[0],ALIAS.get(str(r[1]).strip(),str(r[1]).strip())]+list(r[2:])) for r in rows]
 rows=[r for r in rows if 'Quadricycle' not in str(r[6])]  # Citroën Ami, Fiat Topolino exclus
+# Garde-fou : une ligne sans nom de modèle créerait une fiche sans titre ; elle est ignorée et signalée
+_sans_nom=[r for r in rows if not str(r[2] or '').strip()]
+for r in _sans_nom: print('  ⚠ ligne ignorée, nom de modèle vide :', r[1], '|', r[5])
+rows=[r for r in rows if str(r[2] or '').strip()]
 # Même modèle écrit avec ou sans accent (« Serie 3 » / « Série 3 ») : on garde l'orthographe la plus fréquente,
 # sinon les deux fiches auraient la même adresse et l'une écraserait l'autre.
 import unicodedata, collections
