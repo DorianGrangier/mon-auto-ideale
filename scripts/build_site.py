@@ -139,8 +139,10 @@ def lang_switch(p):
     """Sélecteur FR · EN : renvoie vers la même page dans l'autre langue (le comparateur garde ses critères, voir foot())."""
     other = other_path(CUR_PATH)
     href = (p + '../' if EN() else p + 'en/') + other
-    fr = '<span aria-current="true">FR</span>' if not EN() else f'<a href="{href}" hreflang="fr" lang="fr" title="Version française">FR</a>'
-    en = '<span aria-current="true">EN</span>' if EN() else f'<a href="{href}" hreflang="en" lang="en" title="English version">EN</a>'
+    def fl(n): return f'<svg class="lf" viewBox="0 0 30 20" aria-hidden="true" focusable="false">{FLAGS.get(n, "")}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.25)" stroke-width=".8"/></svg>'
+    FRL, ENL = fl('France') + 'FR', fl('Royaume-Uni') + 'EN'
+    fr = f'<span aria-current="true">{FRL}</span>' if not EN() else f'<a href="{href}" hreflang="fr" lang="fr" title="Version française">{FRL}</a>'
+    en = f'<span aria-current="true">{ENL}</span>' if EN() else f'<a href="{href}" hreflang="en" lang="en" title="English version">{ENL}</a>'
     return f'<div class="lang-sw" role="group" aria-label="{T("Langue", "Language")}">{fr}{en}</div>'
 def nav(p, cur):
     items = [('index', T('Accueil', 'Home')), ('comparateur', T('Comparateur', 'Compare')), ('face', T('Face à face', 'Head to head')),
