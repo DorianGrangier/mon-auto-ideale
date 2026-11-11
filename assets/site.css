@@ -770,3 +770,10 @@ img.ph{display:block;width:100%;height:100%;object-fit:cover}
   .brand-sec .cat-grp .mgrid > *{width:auto}
 }
 @media (max-width:640px){.mgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+
+/* Sélecteur de langue FR · EN (dans la barre de navigation) */
+.topnav-links .lang-sw{display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:2px;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;align-self:center}
+.topnav-links .lang-sw a,.topnav-links .lang-sw span{font-size:12.5px;font-weight:700;letter-spacing:.04em;line-height:1;padding:5px 9px;border-radius:999px;border-bottom:0;text-decoration:none}
+.topnav-links .lang-sw a{color:var(--hero-muted)}
+.topnav-links .lang-sw a:hover{color:var(--hero-ink);background:rgba(255,255,255,.12)}
+.topnav-links .lang-sw span[aria-current]{background:var(--road);color:#2a1460}

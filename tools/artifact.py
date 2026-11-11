@@ -16,6 +16,7 @@ def _link(m):
     return f'href="{BASE}{href}" target="_blank" rel="noopener"'
 h = re.sub(r'href="((?:index|comparateur|face-a-face|marques|selections|methode|mentions-legales)\.html(?:#[^"]*)?)"', _link, h)
 h = re.sub(r'href="((?:modeles|selections)/[a-z0-9-]+\.html)"', _link, h)
+h = re.sub(r'href="(en/[a-z0-9/.-]*)"', lambda m: f'href="{BASE}{m.group(1)}" target="_blank" rel="noopener"', h)   # sélecteur de langue
 h = h.replace('href="face-a-face.html#f=', f'target="_blank" rel="noopener" href="{BASE}face-a-face.html#f=')
 h = re.sub(r'href="(assets/(?:favicon|apple-touch-icon)[^"]*)"', lambda m: f'href="{BASE}{m.group(1)}"', h)
 h = h.replace("const ficheUrl = c=> 'modeles/'", f"const ficheUrl = c=> '{BASE}modeles/'")

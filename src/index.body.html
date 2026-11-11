@@ -74,6 +74,12 @@ const CARS = JSON.parse(document.getElementById('data').textContent);
 const META = JSON.parse(document.getElementById('meta-data').textContent);
 const slug = s=> s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const ficheUrl = c=> 'modeles/'+slug(c.b+' '+c.m)+'.html';
+/* Langue : libellés anglais injectés par build_site.py sur /en/ (les clés de données restent en français) */
+const LANG = META.LANG||'fr';
+const BL = t=> (META.BODY_LBL||{})[t]||t;   // libellé d'une carrosserie
+const bodyTxt = c=> c.c.split(', ').map(BL).join(', ');
+const VN = (META.VN||[]).map(([a,f,b])=>[new RegExp(a,f),b]);
+const vname = v=> VN.reduce((s,[a,b])=>s.replace(a,b), v);   // nom de version affiché
 /* Photos constructeurs (colonnes « Photo » de la feuille) ; à défaut, la silhouette */
 const PHOTOS = JSON.parse(document.getElementById('photos-data').textContent);
 const PHOTO_BASE = 'assets/photos/';
@@ -96,8 +102,8 @@ function avisBlock(c, cls=''){ const a=avisOf(c); if(!a) return '';
     ${a.s?`<p class="avis-s"><b>Bon à savoir</b> ${esc(a.s)}</p>`:''}
   </section>`; }
 const avisShort = c=>{ const a=avisOf(c); return a?`<p class="avis-mini"><b>Notre avis</b> ${esc(a.v)}</p>`:''; };
-const fmt = (n,d=0)=> n==null ? '—' : n.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
-const eur = n => n==null ? 'Prix n.c.' : fmt(n)+'\u00a0€';
+const fmt = (n,d=0)=> n==null ? '—' : n.toLocaleString(LANG==='en'?'en-GB':'fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur = n => n==null ? 'Prix n.c.' : (LANG==='en' ? '€'+fmt(n) : fmt(n)+'\u00a0€');
 const mlTag = c=> c.ml ? `<small class="mlp">+ ${eur(c.ml)} de malus</small>` : '';
 
 /* ---------- Référentiels ---------- */
@@ -243,11 +249,11 @@ const FLAG_SVG = {
   'Corée du Sud': '<rect width="30" height="20" fill="#FFFFFF"/><path d="M10.5 10 A4.5 4.5 0 0 1 19.5 10 Z" fill="#CD2E3A"/><path d="M10.5 10 A4.5 4.5 0 0 0 19.5 10 Z" fill="#0047A0"/><circle cx="12.75" cy="10" r="2.25" fill="#CD2E3A"/><circle cx="17.25" cy="10" r="2.25" fill="#0047A0"/>'
      +[[5,4,33],[25,4,-33],[5,16,-33],[25,16,33]].map(([x,y,a])=>`<g transform="translate(${x} ${y}) rotate(${a})"><rect x="-2.6" y="-2" width="5.2" height=".9" fill="#000"/><rect x="-2.6" y="-.45" width="5.2" height=".9" fill="#000"/><rect x="-2.6" y="1.1" width="5.2" height=".9" fill="#000"/></g>`).join(''),
 };
-function flag(nation, cls='flag'){ const inner=FLAG_SVG[nation]; if(!inner) return '';
-  return `<svg class="${cls}" viewBox="0 0 30 20" role="img" aria-label="${nation}"><title>${nation}</title>${inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`; }
+function flag(nation, cls='flag'){ const inner=FLAG_SVG[nation]; if(!inner) return ''; const nl=(META.NAT_LBL||{})[nation]||nation;
+  return `<svg class="${cls}" viewBox="0 0 30 20" role="img" aria-label="${nl}"><title>${nl}</title>${inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`; }
 const brandFlag = b=> flag(NATION[b]);
 
-CARS.forEach((c,i)=>{ c.big = c.pl>5 || !!c.s7; c.plTxt = (c.s7 && c.pl<=5) ? c.pl+' ou 7 places' : c.pl+' places'; c.id=i; c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
+CARS.forEach((c,i)=>{ c.big = c.pl>5 || !!c.s7; c.plTxt = (c.s7 && c.pl<=5) ? c.pl+' ou 7 places' : c.pl+' places'; c.id=i; c.vd=vname(c.v); c.tags = c.c.split(', ').map(t=>BODY_ALIAS[t]||t); c.plug = c.e==='ev'||c.e==='phev'; c.ffv=/flexi?fuel|e85/i.test(c.v); });
 
 //</shared>
 /* ---------- Fonctions de notation ---------- */
@@ -267,7 +273,7 @@ const CRITS = [
     else if(hi && h>hi) v=BASE*Math.max(0,1-(h-hi)/(.5*hi));
     return [v, h+' ch']; }},
  {id:'body', name:'Carrosserie', short:'Carrosserie',
-  score(c,s){ let best=0; s.val.forEach(u=>c.tags.forEach(t=>{ best=Math.max(best, u===t?1:((BODY_SIM[u]||{})[t]||0)) })); return [best, c.c]; }},
+  score(c,s){ let best=0; s.val.forEach(u=>c.tags.forEach(t=>{ best=Math.max(best, u===t?1:((BODY_SIM[u]||{})[t]||0)) })); return [best, bodyTxt(c)]; }},
  {id:'seats', name:'Nombre de places', short:'Places',
   score(c,s){ return [s.val==='gt5' ? (c.big?1:0) : (c.pl>5?.6:1), c.plTxt]; }},
  {id:'cost', name:"Coût de l'énergie par an", short:'Coût énergie',
@@ -351,7 +357,7 @@ function dualHTML(k,s){ const d=DUAL[k];
     +`<div class="dual-nums"><label>De ${nb(d.a,d.la)}</label><label>à ${nb(d.b,d.lb)}</label></div>`; }
 const CONTROL = {
   moto: s=>`<div class="chips">${MOTO_OPTS.map(([v,l])=>`<button type="button" class="chip" data-k="moto" data-chip="${v}" aria-pressed="${s.val.has(v)}">${l}</button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une motorisation proche (ex. hybride rechargeable pour « hybride ») obtient une note partielle. Choisir « Électrique » affiche les critères d'autonomie et de puissance de recharge.</p>`,
-  body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${v}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
+  body: s=>`<div class="bodies">${BODY_OPTS.map(v=>`<button type="button" class="btile" data-k="body" data-chip="${v}" aria-pressed="${s.val.has(v)}">${silhouette(v)}<span>${BL(v)}</span></button>`).join('')}</div><p class="hint">Plusieurs choix possibles. Une carrosserie proche (ex. SUV urbain pour « SUV ») obtient une note partielle.</p>`,
   seats: s=>seg('seats','val',[['le5','5 places ou moins'],['gt5','Plus de 5 places']],s.val)+`<p class="hint">Avec « Plus de 5 places », seules les voitures proposées en 7 places (de série ou en option) conviennent. Avec « 5 places ou moins », une voiture uniquement 7 places reste possible (note partielle).</p>`,
   cost: s=>range('cost','val',300,4000,50,s.val,'€/an')+`<p class="hint">Budget maximum de carburant ou d'électricité par an, selon le kilométrage et les prix ci-dessous.</p>`,
   aut: s=>range('aut','val',30,700,10,s.val,'km')+`<p class="hint">Autonomie WLTP mixte minimale annoncée par le constructeur. Concerne les électriques et hybrides rechargeables.</p>`,
@@ -563,7 +569,7 @@ function openVersions(key){ const l=VERS.get(key)||[]; if(!l.length) return; con
   const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
   sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${l.length} versions</div><h2 id="cmp-title">${brandFlag(c0.b)} ${c0.b} ${c0.m}</h2><div class="c-ver">Toutes les versions qui passent vos filtres, de la mieux notée à la moins bien notée.</div><div class="sheet-site">${siteBtn(c0,true)}</div></div><button type="button" class="x" data-close>Fermer</button></div>
     <div class="vlist">${l.map(r=>{ const c=r.car; return `<div class="vrow"><span class="score num" style="${scoreStyle(r.score)}">${r.score}<small>/100</small></span>
-      <div style="min-width:0"><div class="nm">${c.v}</div><div class="mini">${wpSpan(r)}<span>${ENERGY[c.e]}</span><span>${c.hp} ch</span><span>${c.bx==='A'?'Auto':'Manuelle'}</span>${c.e==='ev'&&c.aut?`<span>${c.aut} km</span>`:(c.l!=null?`<span>${fmt(c.l,1)} L/100</span>`:'')}</div></div>
+      <div style="min-width:0"><div class="nm">${c.vd}</div><div class="mini">${wpSpan(r)}<span>${ENERGY[c.e]}</span><span>${c.hp} ch</span><span>${c.bx==='A'?'Auto':'Manuelle'}</span>${c.e==='ev'&&c.aut?`<span>${c.aut} km</span>`:(c.l!=null?`<span>${fmt(c.l,1)} L/100</span>`:'')}</div></div>
       <span class="pr num">${c.p==null?'Prix n.c.':`<small>à partir de</small>${eur(c.p)}${mlTag(c)}`}</span>${cmpBtn(c)}</div>`; }).join('')}</div>`;
   const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
 document.addEventListener('click',e=>{ const b=e.target.closest('[data-vers]'); if(b){ e.stopPropagation(); openVersions(b.dataset.vers); } });
@@ -572,7 +578,7 @@ function summaryText(){ const L=[];
   CRITS.forEach(cr=>{ if(!isActive(cr)) return; const s=S[cr.id]; let v='';
     switch(cr.id){
       case 'price': v=(s.min>0?'budget de '+eur(s.min)+' à '+eur(s.val):'budget maximum '+eur(s.val))+(s.malus!==false?' (malus inclus)':''); break;
-      case 'body': if(!s.val.size) return; v=[...s.val].join(' ou '); break;
+      case 'body': if(!s.val.size) return; v=[...s.val].map(BL).join(' ou '); break;
       case 'seats': v=s.val==='gt5'?'plus de 5 places':'5 places ou moins'; break;
       case 'moto': if(!s.val.size) return; v=[...s.val].map(x=>(MOTO_OPTS.find(o=>o[0]===x)||[x,x])[1]).join(' ou '); break;
       case 'power': v=s.min+(s.max?' à '+s.max+' ch':' ch et plus'); break;
@@ -587,7 +593,7 @@ function summaryText(){ const L=[];
     L.push(v+(s.w===3?' (impératif)':'')); });
   if(S.aid.on) L.push("éligible aux aides à l'achat");
   const B=S.brand; if(B.on && B.val.size) L.push((B.mode==='only'?'marques : ':'sans : ')+[...B.val].join(', '));
-  const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.v} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
+  const top=lastList.slice(0,3).map((r,i)=>`${['🥇','🥈','🥉'][i]} ${r.car.b} ${r.car.m} ${r.car.vd} : ${r.score}/100, à partir de ${eur(r.car.p)}`);
   const w=lastList[0]&&siteUrl(lastList[0].car)?`\n\nSur le site officiel : ${siteUrl(lastList[0].car)}`:'';
   return `Mioto, le comparateur de voitures neuves selon vos critères\nMes critères : ${L.join(' · ')}\n\nMon podium :\n${top.join('\n')}${w}\n\nVoir ce classement sur Mioto : ${shareURL()}`; }
 function toast(msg,undo){ const t=document.getElementById('toast'); t.innerHTML=''; const s=document.createElement('span'); s.textContent=msg; t.appendChild(s);
@@ -622,7 +628,7 @@ const siteBtn = (c,big)=> siteUrl(c)?`<a class="site-${big?'btn':'link'}" href="
 //</shared>
 const SOON = c=> c.y && c.y>new Date().getFullYear();
 const endBadge = c=> (SOON(c)?`<span class="tag warn">Arrivée prévue en ${c.y}</span>`:'')+(eligibleAid(c)?`<span class="tag ok">${AID_TXT}</span>`:'')+(c.end?`<span class="tag warn">Fin de commercialisation ${c.end}</span>`:'');
-const keyTags = c=>{ const t=[ENERGY[c.e], c.c, c.plTxt, c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
+const keyTags = c=>{ const t=[ENERGY[c.e], bodyTxt(c), c.plTxt, c.hp+' ch', c.bx==='A'?'Automatique':'Manuelle'];
   if(c.e==='ev'){ if(c.aut) t.push(c.aut+' km'); } else if(c.l!=null) t.push(fmt(c.l,1)+' L/100'); if(c.tk) t.push(c.tk+' L de coffre'); if(c.tr==='AWD') t.push('4 roues motrices'); const ec=energyCost(c); if(ec!=null) t.push(fmtCost(ec)+' d\'énergie'); return t; };
 const breakdown = r=> `<ul class="breakdown">${r.parts.map(p=>{ const pc=Math.round(p.v*100);
   return `<li><span class="bn">${p.cr.short}</span><span class="bv">${p.txt}</span><span class="bar"><i style="width:${pc}%;background:${color(pc)}"></i></span><span class="bs">${pc}</span></li>`}).join('')}</ul>`;
@@ -649,9 +655,9 @@ function statTiles(c){ const t=[];
   t.push(tile(c.tk?c.tk+' L':'—','Coffre'));
   t.push(tile(c.nc?c.nc+' ★':'—','Euro NCAP'));
   return `<div class="tiles">${t.join('')}</div>`; }
-const specLine = c=>{ const v=(c.v||'').toLowerCase(); const en=ENERGY[c.e]||'';
+const specLine = c=>{ const v=(c.vd||'').toLowerCase(); const en=ENERGY[c.e]||'';
   return [v.includes(en.toLowerCase().slice(0,6))?null:en, c.hp&&!v.includes(c.hp+' ch')?c.hp+' ch':null, c.e==='ev'&&c.aut?c.aut+' km':(c.l!=null&&c.e!=='ev'?fmt(c.l,1)+' L/100':null)].filter(Boolean).join(' · '); };
-const verLine = c=>{ const s=specLine(c); return s?c.v+' · '+s:c.v; };
+const verLine = c=>{ const s=specLine(c); return s?c.vd+' · '+s:c.vd; };
 function badges(r){ const c=r.car, w=weakPoint(r), b=[];
   if(w) b.push(`<span class="bdg ${w.ok?'ok':'wp'}">${w.ok?'✓ Remplit tous vos critères':'Point faible : '+w.txt.charAt(0).toLowerCase()+w.txt.slice(1)}</span>`);
   if(eligibleAid(c)) b.push(`<span class="bdg aid">Éligible aux aides</span>`);
@@ -706,7 +712,7 @@ function update(){
     <div class="best-body">
       ${photoOf(c)?`<figure class="best-photo"><img src="${PHOTO_BASE}${photoOf(c).f}" alt="${c.b} ${c.m}" decoding="async"><figcaption>${photoOf(c).c}</figcaption></figure>`:`<div class="best-sil">${silFor(c)}</div>`}
       <h3>${c.b} ${c.m}</h3>
-      <p class="ver">${flag(NATION[c.b])} ${c.v}</p>
+      <p class="ver">${flag(NATION[c.b])} ${c.vd}</p>
       <div class="price-row"><div class="price num">${c.p==null?'Prix n.c.':`<small class="from">À partir de</small>${eur(c.p)}`}</div>${c.ml?`<div class="ml-note">+ ${eur(c.ml)} de malus 2026</div>`:''}</div>
       ${actions(c,true)}
       ${badges(top)}
@@ -749,7 +755,7 @@ function renderList(){
 /* Fiche détaillée (podium) dans une fenêtre */
 function openFiche(r){ const c=r.car; lastFocus=document.activeElement;
   const sh=document.getElementById('cmp-sheet'); sh.classList.add('narrow');
-  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${r.rank}e place · ${r.score}/100</div><h2 id="cmp-title">${brandFlag(c.b)} ${c.b} ${c.m}</h2><div class="c-ver">${c.v} · ${c.p==null?'prix n.c.':'à partir de '+eur(c.p)+(c.ml?' + '+eur(c.ml)+' de malus':'')}</div></div><button type="button" class="x" data-close>Fermer</button></div>
+  sh.innerHTML=`<div class="sheet-h"><div><div class="eyebrow">${r.rank}e place · ${r.score}/100</div><h2 id="cmp-title">${brandFlag(c.b)} ${c.b} ${c.m}</h2><div class="c-ver">${c.vd} · ${c.p==null?'prix n.c.':'à partir de '+eur(c.p)+(c.ml?' + '+eur(c.ml)+' de malus':'')}</div></div><button type="button" class="x" data-close>Fermer</button></div>
     ${actions(c,true)}${badges(r)}${statTiles(c)}${avisLead(c)}
     <div class="folds">${whyScore(r,true)}${avisFull(c)}${specsFold(c)}</div>`;
   const v=document.getElementById('cmp-view'); v.hidden=false; document.body.style.overflow='hidden'; v.querySelector('[data-close]').focus(); }
@@ -792,7 +798,7 @@ const SPEC_ROWS = [
   ['Fin de commercialisation', null, c=>c.end?String(c.end):'—'],
   ['Marque', null, c=>brandFlag(c.b)+' '+(ADJ[NATION[c.b]]||'')],
   ['Motorisation', null, c=>ENERGY[c.e]],
-  ['Carrosserie', null, c=>c.c],
+  ['Carrosserie', null, c=>bodyTxt(c)],
   ['Puissance', c=>c.hp, c=>c.hp!=null?c.hp+' ch':null, 'hi'],
   ['Couple', c=>c.nm, c=>c.nm?c.nm+' Nm':null, 'hi'],
   ['0 à 100 km/h', c=>c.acc, c=>c.acc?fmt(c.acc,1)+' s':null, 'lo'],
@@ -843,7 +849,7 @@ function renderCompare(){
   document.getElementById('cmp-sheet').innerHTML=`
     <div class="sheet-h"><h2 id="cmp-title">Comparaison</h2><a class="site-link ff-link" href="face-a-face.html#f=${b64e(JSON.stringify(cars.map(c=>[c.b,c.m,c.v])))}">Ouvrir en face à face</a><button type="button" class="x" data-close>Fermer</button></div>
     <div class="ctable-wrap"><table class="ctable" style="min-width:${105+n*120}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
-      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${c.b} ${c.m}</div><div class="c-ver">${c.v}</div>${siteBtn(c)}<button type="button" class="rm" data-rm="${c.id}">Retirer</button></th>`).join('')}</tr></thead>
+      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${c.b} ${c.m}</div><div class="c-ver">${c.vd}</div>${siteBtn(c)}<button type="button" class="rm" data-rm="${c.id}">Retirer</button></th>`).join('')}</tr></thead>
       <tbody>${body}</tbody></table></div>
     <p class="legend">▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Les notes sont calculées avec vos critères actuels.</p>`;
 }

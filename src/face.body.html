@@ -51,7 +51,7 @@ function slotHTML(s, i){
   const c = s.id!=null ? CARS[s.id] : null;
   const brands = BRANDS.map(b=>opt(b, b, b===s.b)).join('');
   const models = s.b ? modelNames(s.b).map(m=>opt(m, m, m===s.m)).join('') : '';
-  const vers = (s.b && s.m) ? MODELS_OF[s.b].get(s.m).map(v=>opt(v.id, v.v+' · '+ENERGY[v.e]+' · '+(v.p!=null?eur(v.p):'prix n.c.'), v.id===s.id)).join('') : '';
+  const vers = (s.b && s.m) ? MODELS_OF[s.b].get(s.m).map(v=>opt(v.id, v.vd+' · '+ENERGY[v.e]+' · '+(v.p!=null?eur(v.p):'prix n.c.'), v.id===s.id)).join('') : '';
   const canRm = SL.length>2 || s.b;
   return `<div class="ff-slot${c?' on':''}">
     <div class="ff-h"><span class="ff-n">Modèle ${i+1}</span>${canRm?`<button type="button" class="ff-rm" data-rm="${i}" aria-label="Retirer le modèle ${i+1}">Retirer</button>`:''}</div>
@@ -90,7 +90,7 @@ function renderTable(){
   el.innerHTML = `
     <div class="ff-bar"><h2 class="ff-t">Le face-à-face</h2><button type="button" class="ff-share" data-share>Copier le lien</button></div>
     <div class="ff-card"><div class="ctable-wrap"><table class="ctable" style="min-width:${120+n*150}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
-      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${esc(c.b)} ${esc(c.m)}</div><div class="c-ver">${esc(c.v)}</div><a class="site-link" href="${ficheUrl(c)}">Fiche du modèle</a>${siteBtn(c)}</th>`).join('')}</tr></thead>
+      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${esc(c.b)} ${esc(c.m)}</div><div class="c-ver">${esc(c.vd)}</div><a class="site-link" href="${ficheUrl(c)}">Fiche du modèle</a>${siteBtn(c)}</th>`).join('')}</tr></thead>
       <tbody>${body}</tbody></table></div></div>
     <p class="legend">▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Prix « à partir de », malus 2026 calculé sur le CO₂ et le poids.</p>`;
 }
