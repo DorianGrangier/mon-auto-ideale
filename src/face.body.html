@@ -20,7 +20,8 @@ const byKey = new Map(CARS.map(c=>[c.b+'|'+c.m+'|'+c.v, c]));
 const MODELS_OF = {};
 CARS.forEach(c=>{ const m = MODELS_OF[c.b] || (MODELS_OF[c.b] = new Map()); if(!m.has(c.m)) m.set(c.m, []); m.get(c.m).push(c); });
 Object.values(MODELS_OF).forEach(m=>m.forEach(l=>l.sort((a,b)=>(a.p ?? 1e9)-(b.p ?? 1e9))));
-const modelNames = b=> [...(MODELS_OF[b] || new Map()).keys()].sort((x,y)=>x.localeCompare(y,'fr'));
+const mdisp = (b,m)=> (META.MN||{})[b+'|'+m]||m;   // nom de modèle affiché (anglais sur /en/)
+const modelNames = b=> [...(MODELS_OF[b] || new Map()).keys()].sort((x,y)=>mdisp(b,x).localeCompare(mdisp(b,y),'fr',{numeric:true}));
 const cheapest = (b,m)=> MODELS_OF[b].get(m)[0];
 const b64e = str=> btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const b64d = str=> decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
@@ -49,8 +50,8 @@ function writeState(){
 const opt = (v,l,sel)=> `<option value="${esc(v)}"${sel?' selected':''}>${esc(l)}</option>`;
 function slotHTML(s, i){
   const c = s.id!=null ? CARS[s.id] : null;
-  const brands = BRANDS.map(b=>opt(b, b, b===s.b)).join('');
-  const models = s.b ? modelNames(s.b).map(m=>opt(m, m, m===s.m)).join('') : '';
+  const brands = BRANDS.map(b=>opt(b, BN(b), b===s.b)).join('');
+  const models = s.b ? modelNames(s.b).map(m=>opt(m, mdisp(s.b,m), m===s.m)).join('') : '';
   const vers = (s.b && s.m) ? MODELS_OF[s.b].get(s.m).map(v=>opt(v.id, v.vd+' · '+ENERGY[v.e]+' · '+(v.p!=null?eur(v.p):'prix n.c.'), v.id===s.id)).join('') : '';
   const canRm = SL.length>2 || s.b;
   return `<div class="ff-slot${c?' on':''}">
@@ -90,7 +91,7 @@ function renderTable(){
   el.innerHTML = `
     <div class="ff-bar"><h2 class="ff-t">Le face-à-face</h2><button type="button" class="ff-share" data-share>Copier le lien</button></div>
     <div class="ff-card"><div class="ctable-wrap"><table class="ctable" style="min-width:${120+n*150}px"><colgroup><col class="lab">${cars.map(()=>'<col>').join('')}</colgroup>
-      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${esc(c.b)} ${esc(c.m)}</div><div class="c-ver">${esc(c.vd)}</div><a class="site-link" href="${ficheUrl(c)}">Fiche du modèle</a>${siteBtn(c)}</th>`).join('')}</tr></thead>
+      <thead><tr><th></th>${cars.map(c=>`<th scope="col"><div class="c-name">${brandFlag(c.b)} ${esc(c.bd)} ${esc(c.md)}</div><div class="c-ver">${esc(c.vd)}</div><a class="site-link" href="${ficheUrl(c)}">Fiche du modèle</a>${siteBtn(c)}</th>`).join('')}</tr></thead>
       <tbody>${body}</tbody></table></div></div>
     <p class="legend">▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Prix « à partir de », malus 2026 calculé sur le CO₂ et le poids.</p>`;
 }

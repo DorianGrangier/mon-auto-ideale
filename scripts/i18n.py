@@ -227,8 +227,8 @@ JS_EN = [
  ("toast('Lien copié : il ouvre ce classement avec vos critères')", "toast('Link copied: it opens this ranking with your criteria')"),
  ("toast('Résumé copié : collez-le où vous voulez')", "toast('Summary copied: paste it wherever you like')"),
  ("'d’or'", "'Gold'"), ("'d’argent'", "'Silver'"), ("'de bronze'", "'Bronze'"), ('aria-label="Médaille ${lab}"', 'aria-label="${lab} medal"'),
- ("'Ouvrir la page '+c.b+' '+c.m+' sur le site officiel':'Ouvrir le site officiel '+c.b} (nouvel onglet)\">${big?'Voir sur le site '+siteName(c.b):'Site '+siteName(c.b)}",
-  "'Open the '+c.b+' '+c.m+' page on the official website':'Open the official '+c.b+' website'} (new tab)\">${big?'See it on the '+siteName(c.b)+' website':siteName(c.b)+' website'}"),
+ ("'Ouvrir la page '+c.bd+' '+c.md+' sur le site officiel':'Ouvrir le site officiel '+c.b} (nouvel onglet)\">${big?'Voir sur le site '+siteName(c.b):'Site '+siteName(c.b)}",
+  "'Open the '+c.bd+' '+c.md+' page on the official website':'Open the official '+c.b+' website'} (new tab)\">${big?'See it on the '+siteName(c.b)+' website':siteName(c.b)+' website'}"),
  ('Arrivée prévue en ${c.y}', 'Due in ${c.y}'), ('Fin de commercialisation ${c.end}', 'End of sale ${c.end}'),
  ("c.bx==='A'?'Automatique':'Manuelle'];", "c.bx==='A'?'Automatic':'Manual'];"),
  ("t.push(c.tk+' L de coffre')", "t.push(c.tk+' L boot')"), ("t.push('4 roues motrices')", "t.push('All-wheel drive')"), ("t.push(fmtCost(ec)+' d\\'énergie')", "t.push(fmtCost(ec)+' energy')"),
@@ -259,9 +259,9 @@ JS_EN = [
  ('Voir le détail</button>', 'See details</button>'), ('${r.rank}e place · ', 'No. ${r.rank} · '),
  ("'<span aria-hidden=\"true\">✓</span><span class=\"lbl\"> Comparée</span>':'<span aria-hidden=\"true\">+</span><span class=\"lbl\"> Comparer</span>'",
   "'<span aria-hidden=\"true\">✓</span><span class=\"lbl\"> Added</span>':'<span aria-hidden=\"true\">+</span><span class=\"lbl\"> Compare</span>'"),
- ("aria-label=\"${on?'Retirer':'Ajouter'} ${c.b} ${c.m} ${on?'de':'à'} la comparaison\"", "aria-label=\"${on?'Remove':'Add'} ${c.b} ${c.m} ${on?'from':'to'} the comparison\""),
+ ("aria-label=\"${on?'Retirer':'Ajouter'} ${c.bd} ${c.md} ${on?'de':'à'} la comparaison\"", "aria-label=\"${on?'Remove':'Add'} ${c.bd} ${c.md} ${on?'from':'to'} the comparison\""),
  ("trayMsg='3 voitures maximum : retirez-en une.'", "trayMsg='3 cars maximum: remove one.'"), ("'Ajoutez une deuxième voiture.'", "'Add a second car.'"),
- ('aria-label="Retirer ${c.b} ${c.m}"', 'aria-label="Remove ${c.b} ${c.m}"'), ('data-clear>Vider</button>', 'data-clear>Clear</button>'), ('>Comparer (${CMP.length})</button>', '>Compare (${CMP.length})</button>'),
+ ('aria-label="Retirer ${c.bd} ${c.md}"', 'aria-label="Remove ${c.bd} ${c.md}"'), ('data-clear>Vider</button>', 'data-clear>Clear</button>'), ('>Comparer (${CMP.length})</button>', '>Compare (${CMP.length})</button>'),
  ("sec('Correspondance à vos critères')", "sec('Match with your criteria')"), ("row('Note globale'", "row('Overall score'"), ("sec('Fiche technique')", "sec('Specifications')"),
  ('<h2 id="cmp-title">Comparaison</h2>', '<h2 id="cmp-title">Comparison</h2>'), ('Ouvrir en face à face', 'Open head to head'), ('>Retirer</button>', '>Remove</button>'),
  ('▲ en vert : la meilleure valeur de la ligne. ▼ en rouge : la moins bonne. Les notes sont calculées avec vos critères actuels.', '▲ in green: the best value in the row. ▼ in red: the worst. Scores are calculated with your current criteria.'),
@@ -284,3 +284,21 @@ def js_en(s):
     return s
 def js_unused():
     return [JS_EN[i][0] for i in range(len(JS_EN)) if i not in _JS_USED]
+
+# --- noms de modèles et de marques sur le site anglais -------------------------------------------------------------------
+BRAND = {'Opel': 'Opel / Vauxhall'}                        # Opel est vendue sous la marque Vauxhall au Royaume-Uni
+BRAND_NATIONS = {'Opel': ['Allemagne', 'Royaume-Uni']}     # drapeaux affichés (clés françaises de meta.json)
+BRAND_ADJ = {'Opel': 'German / British'}
+BRAND_NATION = {'Opel': 'Germany / United Kingdom'}
+_MN = [
+    (r'^Série (\d)\b', r'\1 Series'),
+    (r'^Classe ([A-Z])\b', r'\1-Class'),
+    (r'^AMG GT 4 Portes$', 'AMG GT 4-Door Coupé'),
+    (r'\bBreak\b', 'Estate'),
+    (r'\bBerline\b', 'Saloon'),
+]
+def mname_en(b, m):
+    """Nom de modèle affiché sur le site anglais (« Série 3 » → « 3 Series », « Classe C Break » → « C-Class Estate »)."""
+    for a, r in _MN: m = re.sub(a, r, m)
+    if b == 'BMW': m = re.sub(r'\bCabriolet\b', 'Convertible', m)
+    return m

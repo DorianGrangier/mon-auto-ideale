@@ -48,11 +48,15 @@ def lang_url(path, lang):
     return SITE_URL + ('en/' if lang == 'en' else '') + path
 def energy(e): return (i18n.ENERGY if EN() else ENERGY).get(e, e)
 def trans(t): return (i18n.TR if EN() else TR).get(t)
-def adj(b): n = NATION.get(b, ''); return (i18n.ADJ.get(n, '') if EN() else ADJ.get(n, ''))
-def nation(b): n = NATION.get(b, ''); return i18n.NATION.get(n, n) if EN() else n
+def adj(b):
+    n = NATION.get(b, '')
+    return (i18n.BRAND_ADJ.get(b) or i18n.ADJ.get(n, '')) if EN() else ADJ.get(n, '')
+def nation(b): n = NATION.get(b, ''); return (i18n.BRAND_NATION.get(b) or i18n.NATION.get(n, n)) if EN() else n
 def blab(t): return i18n.BODY.get(t, t) if EN() else t        # libellé d'une carrosserie
 def body_txt(c): return i18n.body_en(c['c']) if EN() else c['c']
 def vn(v): return i18n.vname_en(v) if EN() else v               # nom de version affiché
+def bn(b): return i18n.BRAND.get(b, b) if EN() else b            # nom de marque affiché (Opel / Vauxhall)
+def mn(b, m): return i18n.mname_en(b, m) if EN() else m          # nom de modèle affiché (Série 3 → 3 Series)
 # Pages modèles sur les sites constructeurs : colonne « Lien constructeur » de la feuille en priorité, sinon data/liens.json
 LIENS = load('data/liens.json') if os.path.exists(os.path.join(ROOT, 'data/liens.json')) else {}
 for _c in CARS:
@@ -100,16 +104,20 @@ def fmt(n, d=0):
     return s
 def eur(n): return '—' if n is None else ('€' + fmt(n) if EN() else fmt(n) + NB + '€')
 def flag(b, cls='flag'):
-    inner = FLAGS.get(NATION.get(b, ''), '')
+    if EN() and b in i18n.BRAND_NATIONS:   # double nationalité (Opel / Vauxhall)
+        return ''.join(_flag(n, i18n.NATION.get(n, n), cls) for n in i18n.BRAND_NATIONS[b])
+    return _flag(NATION.get(b, ''), nation(b), cls)
+def _flag(key, label, cls):
+    inner = FLAGS.get(key, '')
     if not inner: return ''
-    n = esc(nation(b))
+    n = esc(label)
     return f'<svg class="{cls}" viewBox="0 0 30 20" role="img" aria-label="{n}"><title>{n}</title>{inner}<rect x=".25" y=".25" width="29.5" height="19.5" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>'
 def eligible(c): return c['e'] == 'ev' and ((c['b'] + '|' + c['m']) in SCORE_ENV or (c['b'] + '|' + c['m'] + '|' + c['v']) in SCORE_ENV) and c.get('p') and c['p'] <= 47000 and c.get('w') and c['w'] < 2400
 def tags(c): return [ {'Roadster': 'Cabriolet', 'Limousine': 'Berline'}.get(t, t) for t in c['c'].split(', ')]
 def photo(b, m): return PH.get(f'{b}|{m}')
 def pic(c, p, cls='ph'):
     ph = photo(c['b'], c['m'])
-    return f'<img class="{cls}" src="{AP(p)}photos/{ph["f"]}" alt="{esc(c["b"])} {esc(c["m"])}" loading="lazy" decoding="async" width="{ph.get("w", 960)}" height="{ph.get("h", 540)}">' if ph else sil(c)
+    return f'<img class="{cls}" src="{AP(p)}photos/{ph["f"]}" alt="{esc(bn(c["b"]))} {esc(mn(c["b"], c["m"]))}" loading="lazy" decoding="async" width="{ph.get("w", 960)}" height="{ph.get("h", 540)}">' if ph else sil(c)
 def sil(c):
     t = tags(c); k = next((x for x in t if x in SILS), 'Berline'); return SILS[k]
 
@@ -216,6 +224,8 @@ def _meta_js():
     if EN():   # libellés anglais (les clés restent françaises)
         m['ADJ'] = {k: i18n.ADJ.get(k, v) for k, v in META['ADJ'].items()}
         m['NAT_LBL'] = i18n.NATION; m['BODY_LBL'] = i18n.BODY; m['VN'] = i18n.VN_JS; m['LANG'] = 'en'
+        m['BN'] = i18n.BRAND; m['BFLAGS'] = i18n.BRAND_NATIONS; m['BADJ'] = i18n.BRAND_ADJ
+        m['MN'] = {f'{b}|{mm}': i18n.mname_en(b, mm) for b, mm in MODELS if i18n.mname_en(b, mm) != mm}
     return m
 def _fill_js(body):
     body = (body.replace('__DATA__', _js(CARS)).replace('__AVIS__', _js(AVIS)).replace('__META__', _js(_meta_js()))
@@ -349,7 +359,7 @@ def examples_html():
         rows = best[0]
         total = _round(100 * best[1]); i = len(figs) + 1
         figs.append(f'''<figure class="ex-card" aria-label="{T('Exemple', 'Example')} {i}{T(' : ', ': ')}{esc(title)}">
-        <figcaption><span class="ex-k">{T('Exemple', 'Example')} {i}</span><b>{esc(title)}</b><small><a href="{MDIR()}/{mslug(b, m)}.html">{esc(b)} {esc(m)}</a>, {esc(vn(v))}</small></figcaption>
+        <figcaption><span class="ex-k">{T('Exemple', 'Example')} {i}</span><b>{esc(title)}</b><small><a href="{MDIR()}/{mslug(b, m)}.html">{esc(bn(b))} {esc(mn(b, m))}</a>, {esc(vn(v))}</small></figcaption>
         <ol class="ex-list">{''.join(rows)}</ol>
         <div class="ex-total"><span>{T('Note finale', 'Final score')}<small>{T(f'moyenne pondérée des {len(rows)} critères', f'weighted average of the {len(rows)} criteria')}</small></span><b class="num" style="color:{_col(total)}">{total}<small>/100</small></b></div>
       </figure>''')
@@ -560,10 +570,10 @@ def similar(b, m, l):
     return cands[:6]
 def mini_card(bb, mm, ll, p):
     c = ll[0]; en = sorted({energy(x['e']) for x in ll})
-    return f'''<a class="mcard" href="{p}{MDIR()}/{mslug(bb, mm)}.html"><span class="msil{' has-ph' if photo(bb, mm) else ''}">{pic(c, p)}</span><span class="mname">{flag(bb)} {esc(bb)} {esc(mm)}</span><span class="mmeta">{esc(blab(tags(c)[0]))} · {esc(' / '.join(en))}</span><span class="mprice">{T('dès ', 'from ') + eur(pmin(ll)) if pmin(ll) else T('prix n.c.', 'price n/a')}</span></a>'''
+    return f'''<a class="mcard" href="{p}{MDIR()}/{mslug(bb, mm)}.html"><span class="msil{' has-ph' if photo(bb, mm) else ''}">{pic(c, p)}</span><span class="mname">{flag(bb)} {esc(bn(bb))} {esc(mn(bb, mm))}</span><span class="mmeta">{esc(blab(tags(c)[0]))} · {esc(' / '.join(en))}</span><span class="mprice">{T('dès ', 'from ') + eur(pmin(ll)) if pmin(ll) else T('prix n.c.', 'price n/a')}</span></a>'''
 
 def build_model(b, m, l):
-    c0 = l[0]; p = '../'; name = f'{b} {m}'
+    c0 = l[0]; p = '../'; name = f'{bn(b)} {mn(b, m)}'
     en = [energy(e) for e in ENERGY if any(c['e'] == e for c in l)]
     ev = [c for c in l if c['e'] == 'ev']; therm = [c for c in l if c['e'] != 'ev']
     tiles = []
@@ -594,7 +604,7 @@ def build_model(b, m, l):
           (T('Coffre avant', 'Front boot'), esc(OU().join(sorted({OUI if c['fk'] else NON for c in l if c.get('fk') is not None}, key=lambda x: x != OUI)) or '—')),
           (T('Recharge 10-80 %', '10-80% charge'), span([c.get('t80') for c in l if c.get('t80')], 'min')),
           (T('Commercialisé depuis', 'On sale since'), esc(str(min(c['y'] for c in l if c.get('y'))) if any(c.get('y') for c in l) else '—')),
-          (T('Marque', 'Brand'), f"{flag(b)} {esc(b)} · {esc(adj(b))}")]
+          (T('Marque', 'Brand'), f"{flag(b)} {esc(bn(b))} · {esc(adj(b))}")]
     dl = [(k, v) for k, v in dl if not (k in (T('Coffre avant', 'Front boot'), T('Recharge 10-80 %', '10-80% charge')) and v == '—')]
     if ev: dl.insert(5, (T('Recharge rapide max.', 'Max. rapid charging'), span([c.get('kw') for c in ev], 'kW')))
     sims = similar(b, m, l)
@@ -609,8 +619,8 @@ def build_model(b, m, l):
     sub = f"{esc(blab(tags(c0)[0]))} · {esc(' / '.join(en))} · {len(l)} version{'s' if len(l) > 1 else ''}"
     rel = f'{MDIR()}/{mslug(b, m)}.html'
     site_lbl = T('Voir sur le site ', 'See it on the ') + esc("DS" if b == "DS Automobiles" else b) + T('', ' website')
-    page = head(title, desc, rel, p, extra) + hero_small(p, '', f'{flag(b)} {T("Fiche modèle", "Model page")} · {esc(b)}', f'{esc(b)} <span>{esc(m)}</span>', sub, (f'<figure class="hero-photo">{pic(c0, p)}<figcaption>{esc(photo(b, m)["credit"])}</figcaption></figure>' if photo(b, m) else f'<div class="hero-sil">{sil(c0)}</div>')) + f'''<div class="wrap page">
-  <nav class="crumbs" aria-label="{T("Fil d'Ariane", "Breadcrumb")}"><a href="{p}{U('marques')}">{T('Marques et modèles', 'Brands and models')}</a> › <a href="{p}{U('marques')}#{slug(b)}">{esc(b)}</a> › <span>{esc(m)}</span></nav>
+    page = head(title, desc, rel, p, extra) + hero_small(p, '', f'{flag(b)} {T("Fiche modèle", "Model page")} · {esc(bn(b))}', f'{esc(bn(b))} <span>{esc(mn(b, m))}</span>', sub, (f'<figure class="hero-photo">{pic(c0, p)}<figcaption>{esc(photo(b, m)["credit"])}</figcaption></figure>' if photo(b, m) else f'<div class="hero-sil">{sil(c0)}</div>')) + f'''<div class="wrap page">
+  <nav class="crumbs" aria-label="{T("Fil d'Ariane", "Breadcrumb")}"><a href="{p}{U('marques')}">{T('Marques et modèles', 'Brands and models')}</a> › <a href="{p}{U('marques')}#{slug(b)}">{esc(bn(b))}</a> › <span>{esc(mn(b, m))}</span></nav>
   <section class="card summary">
     <div class="sum-top">
       <div class="price num">{f'<small class="from">{T("À partir de", "From")}</small>{eur(pm)}' if pm else T('Prix non communiqué', 'Price not available')}</div>
@@ -642,7 +652,7 @@ def model_cat(l):
     return Counter(alias.get(c['c'].split(', ')[0], c['c'].split(', ')[0]) for c in l).most_common(1)[0][0]
 def build_brands():
     p = ''; brands = sorted({b for b, _ in MODELS}, key=lambda s: slug(s))
-    jump = ''.join(f'<a href="#{slug(b)}">{flag(b)} {esc(b)}</a>' for b in brands)
+    jump = ''.join(f'<a href="#{slug(b)}">{flag(b)} {esc(bn(b))}</a>' for b in brands)
     secs = ''
     for b in brands:
         ms = [(mm, ll) for (bb, mm), ll in MODELS.items() if bb == b]
@@ -652,7 +662,7 @@ def build_brands():
         for cat in sorted(groups, key=lambda c: CAT_ORDER.index(c) if c in CAT_ORDER else 99):
             g = sorted(groups[cat], key=lambda x: pmin(x[1]) or 10**9)   # dans une catégorie : du moins cher au plus cher
             body += f'<div class="cat-grp"><h3 class="cat-h">{cat_label(cat)} <small>{len(g)}</small></h3><div class="mgrid">{"".join(mini_card(b, mm, ll, p) for mm, ll in g)}</div></div>'
-        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(b)} <small>{len(ms)} {T('modèle', 'model')}{'s' if len(ms) > 1 else ''} · {T('marque ' + esc(adj(b)), esc(adj(b)) + ' brand')}</small></h2><div class="cat-wrap">{body}</div></section>'''
+        secs += f'''<section class="brand-sec" id="{slug(b)}"><h2>{flag(b, 'flag-lg')} {esc(bn(b))} <small>{len(ms)} {T('modèle', 'model')}{'s' if len(ms) > 1 else ''} · {T('marque ' + esc(adj(b)), esc(adj(b)) + ' brand')}</small></h2><div class="cat-wrap">{body}</div></section>'''
     n = len(MODELS)
     go = T('Aller à une marque', 'Jump to a brand')
     page = head(T('Toutes les marques et tous les modèles | Mioto', 'All brands and models | Mioto'), T(f'Les {n} modèles de voitures neuves de {len(brands)} marques vendues en France, avec prix, versions et avis.', f'The {n} new car models from {len(brands)} brands sold in France, with prices, versions and reviews.'), U('marques'), p) \
@@ -829,7 +839,7 @@ def build_selections():
             aid = ' <span class="aidt">' + T('aides', 'incentive') + '</span>' if eligible(c) else ''
             items.append(
                 f'<li class="sel-item"><span class="sel-rank num">{i}</span><div class="sel-main">'
-                f'<a class="sel-name" href="{p}{MDIR()}/{mslug(b, m)}.html">{flag(b)} {esc(b)} {esc(m)}</a><span class="sel-ver">{esc(vn(c["v"]))}</span>'
+                f'<a class="sel-name" href="{p}{MDIR()}/{mslug(b, m)}.html">{flag(b)} {esc(bn(b))} {esc(mn(b, m))}</a><span class="sel-ver">{esc(vn(c["v"]))}</span>'
                 + (f'<span class="sel-facts">{facts}</span>' if facts else '') + (f'<p class="sel-avis">{esc(verdict)}</p>' if verdict else '')
                 + f'</div><div class="sel-side"><span class="score num" style="background:{_col(s100)}">{s100}<small>/100</small></span>'
                 f'<span class="sel-pr num"><small>{T("à partir de", "from")}</small>{eur(c["p"])}{aid}{ml}</span></div></li>')
@@ -848,7 +858,7 @@ def build_selections():
         write(rel, head(f"{t} | Mioto", desc, rel, p) + hero_small(p, U('selections'), T('Sélection', 'Top picks'), _nb_en(esc(t)), T(f'Classement mis à jour le {day}', f'Ranking updated on {day}')) + body + foot(p))
         w0 = top[0][1]
         cards.append(f'<a class="sel-card" href="selections/{sel_slug(sel)}.html"><b>{_nb_en(esc(sel_txt(sel, "short")))}</b>'
-                     f'<span>{T("N° 1 : ", "No. 1: ")}{flag(w0["b"])} {esc(w0["b"])} {esc(w0["m"])}</span><small>{T(_pl(len(L), "modèle") + " en lice", _pl(len(L), "model") + " in contention")}</small></a>')
+                     f'<span>{T("N° 1 : ", "No. 1: ")}{flag(w0["b"])} {esc(bn(w0["b"]))} {esc(mn(w0["b"], w0["m"]))}</span><small>{T(_pl(len(L), "modèle") + " en lice", _pl(len(L), "model") + " in contention")}</small></a>')
     page = (head(T('Sélections : les meilleures voitures neuves par catégorie | Mioto', 'Top picks: the best new cars by category | Mioto'),
                  T("Citadines électriques, SUV hybrides, familiales, 7 places, voitures sans malus… Les meilleures voitures neuves par catégorie selon la note Mioto.", "Electric city cars, hybrid SUVs, family cars, 7-seaters, cars with no malus… The best new cars by category according to the Mioto score."), U('selections'), '')
             + hero_small('', U('selections'), T('Sélections', 'Top picks'), T('Les meilleures <span>par catégorie</span>', 'The best <span>by category</span>'),
